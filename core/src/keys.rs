@@ -73,6 +73,17 @@ pub fn generate_nonce() -> Result<[u8; NONCE_LEN]> {
     Ok(n)
 }
 
+/// CSPRNG fill of a caller-sized buffer (FFI convenience; production code
+/// should prefer the fixed-size generators above).
+pub fn random_bytes(len: usize) -> Result<Vec<u8>> {
+    let mut buf = vec![0u8; len];
+    use rand::RngCore;
+    rand::rngs::OsRng
+        .try_fill_bytes(&mut buf)
+        .map_err(|_| E2eeError::RandomFailure)?;
+    Ok(buf)
+}
+
 /// Random 16-byte PBKDF2 salt (mnemonic wrap).
 pub fn generate_salt16() -> Result<[u8; 16]> {
     let mut s = [0u8; 16];

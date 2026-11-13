@@ -33,6 +33,18 @@ git clone https://github.com/everabyte/crypto-sdk.git
 cd crypto-sdk
 ```
 
+Or install directly from this repository, per language:
+
+| Language | Command |
+|---|---|
+| Node.js | `npm install everabyte/crypto-sdk#path:bindings/wasm/pkg-node` (npm ≥ 9.4) |
+| Browsers/bundlers | `npm install everabyte/crypto-sdk#path:bindings/wasm/pkg` |
+| Rust | `evb-e2ee-core = { git = "https://github.com/everabyte/crypto-sdk.git", tag = "v0.1.0" }` |
+| Dart/Flutter | pub git dependency on `bindings/dart` (+ native lib `cargo build --release -p evb_e2ee_ffi`) |
+| PHP 8 / Java 22+ / C# / Go | any C FFI against `evb_e2ee_ffi` — header in `include/evb_e2ee.h`, see https://docs.everabyte.com/sdk/quickstart-php (and java/csharp/golang) |
+
+Registry publications (npm, crates.io, pub.dev) are planned; git installs above work today.
+
 Consumers can also install straight from this repository:
 
 - **Node.js / npm** — prebuilt WASM, no toolchain:
@@ -217,5 +229,8 @@ crypto-sdk/
 
 ## License
 
-Proprietary — © Everabyte. See the license terms distributed with your
-Everabyte agreement.
+Source-available and proprietary. Use of this repository and its packages is
+governed by [`LICENSE.md`](LICENSE.md). The license permits installation and
+use as a dependency in Authorized Everabyte Integrations; it does not permit
+standalone redistribution or use to build a competing service. Third-party
+components remain subject to their own license terms.
