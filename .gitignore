@@ -1,0 +1,17 @@
+# Rust / Cargo build artifacts (rebuilt with `cargo build`)
+target/
+**/target/
+
+# Dart/Flutter local state
+.dart_tool/
+.packages
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# NOTE: bindings/wasm/pkg and bindings/wasm/pkg-node are COMMITTED on purpose
+# — they are the prebuilt consumables (small, ~500 KB each) so that
+#   npm install github:everabyte/crypto-sdk#path:bindings/wasm/pkg
+# works without a Rust toolchain. Rebuild them with `wasm-pack build` and
+# commit the result when the core changes; tags should match the grid.

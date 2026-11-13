@@ -1,0 +1,39 @@
+[package]
+name = "evb-e2ee-core"
+version = "0.1.0"
+edition = "2021"
+description = "Everabyte client-side E2EE core: EVB1 content format, key wraps, encrypted names. Never exposes secrets in logs."
+license = "Proprietary"
+
+[features]
+# Test-only deterministic APIs (full randomness material supplied by callers).
+# Never enable in production builds.
+deterministic-vectors = []
+
+[dependencies]
+aes-gcm = "0.10"
+x25519-dalek = { version = "2", features = ["static_secrets"] }
+hkdf = "0.12"
+hmac = "0.12"
+sha2 = "0.10"
+pbkdf2 = { version = "0.12", default-features = false, features = ["hmac"] }
+# Argon2id v1.3 (RFC 9106) — KEK derivation for the mnemonic wrap (v3+).
+argon2 = "0.5"
+zeroize = { version = "1", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rand = "0.8"
+rand_chacha = "0.3"
+base64 = "0.22"
+unicode-normalization = "0.1"
+hex = "0.4"
+bip39 = "2"
+
+# ML-KEM-768 (FIPS 203), seed-based keygen (d||z) for interop with @noble/post-quantum
+fips203 = "0.4"
+
+[dev-dependencies]
+
+[[example]]
+name = "gen_vectors"
+required-features = ["deterministic-vectors"]

@@ -1,0 +1,20 @@
+[workspace]
+resolver = "2"
+members = [
+    "core",
+    "bindings/wasm",
+    "bindings/dart/rust",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Proprietary"
+
+[workspace.dependencies]
+serde_json = "1"
+zeroize = { version = "1", features = ["derive"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
