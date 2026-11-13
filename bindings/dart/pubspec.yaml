@@ -1,8 +1,8 @@
 name: evb_e2ee_dart
 description: >-
-  Dart/Flutter binding for the Everabyte E2EE core (native library via FFI).
-  Prototype: verifies the shared frozen test vectors against the native
-  implementation.
+  Dart/Flutter binding for the Everabyte E2EE core (native library via FFI):
+  EVB1 content encryption, key wraps, encrypted names. Pure crypto —
+  networking, auth and key storage stay app-side.
 version: 0.1.0
 
 environment:

@@ -4,8 +4,7 @@ use zeroize::Zeroize;
 
 use crate::error::{E2eeError, Result};
 
-/// Canonical EVB1 content format (matches the deployed web client
-/// `frontend-next/utils/crypto/e2eeFileCrypto.ts`):
+/// Canonical EVB1 content format (see PROTOCOL.md §1):
 ///
 /// payload = magic "EVB1"(4) || fileNonce(12) || chunk*   (header = 16 B)
 /// every chunk = `ciphertext || tag(16)`; chunk plaintext size is 64 KiB

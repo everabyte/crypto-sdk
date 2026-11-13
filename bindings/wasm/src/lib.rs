@@ -1,9 +1,9 @@
-//! WASM binding over `evb-e2ee-core` — browser-side crypto for the Everabyte
-//! web client (frontend-next).
+//! WASM binding over `evb-e2ee-core` — browser-side crypto for Everabyte
+//! integrations.
 //!
 //! Conventions shared with the Dart FFI binding:
 //! - Envelopes cross the boundary as JSON strings with the canonical
-//!   camelCase keys of the deployed web format (`ephPublicX25519`,
+//!   camelCase keys of the `evb-e2ee-v1` format (`ephPublicX25519`,
 //!   `kemCiphertext`, `nonce`, `wrappedDek`).
 //! - UMK material crosses as `sk(32) || seed(64)` byte strings.
 //! - Errors surface as JS exceptions with short, secret-free messages.
@@ -183,7 +183,7 @@ pub fn wrap_dek_with_link_key(dek: &[u8], link_key: &[u8]) -> Result<String, JsE
 }
 
 /// Unwraps a DEK under a 32-byte link key. Takes the `{ wrappedDek, nonce }`
-/// JSON produced by [`wrap_dek_with_link_key`] (or the web client).
+/// JSON produced by [`wrap_dek_with_link_key`].
 #[wasm_bindgen]
 pub fn unwrap_dek_with_link_key(wrap_json: &str, link_key: &[u8]) -> Result<Vec<u8>, JsError> {
     let w: wrap::SymmetricWrap =

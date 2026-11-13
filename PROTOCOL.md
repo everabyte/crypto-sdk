@@ -1,19 +1,20 @@
 # Everabyte E2EE Protocol — `evb-e2ee-v1`
 
-> **Canonical reference**: the deployed web client
-> `frontend-next/utils/crypto/e2eeFileCrypto.ts` (+ `e2eeKeyCrypto.ts`,
-> `recoveryKeyCrypto.ts`). This SDK is a byte-exact reimplementation of that
-> wire format, verified against frozen test vectors
-> (`crypto-sdk/vectors/evb-e2ee-v1.json`).
+> This SDK is the canonical implementation of the protocol. The frozen test
+> vectors (`vectors/evb-e2ee-v1.json`) are its compatibility contract: every
+> binding must open them before it ships, and the constructions are checked
+> against the official test vectors of the underlying standards (RFC 9180,
+> NIST SP 800-38D, RFC 5869).
 
 ## 0. Scope and trust model
 
-- Everything in this document happens **client-side only**. The nodejs-api and
-  golang-api backends act as blind proxies: they store/relay ciphertext,
-  envelopes and metadata and **never** receive private keys or plaintext.
+- Everything in this document happens **client-side only**. Everabyte's
+  servers act as blind proxies: they store/relay ciphertext, envelopes and
+  metadata and **never** receive private keys or plaintext.
 - The SDK covers crypto and wire format only: streaming chunking, key
   derivation, wraps, encrypted names, sensitive-buffer hygiene. Networking,
-  auth, UI, OS integration and secure storage live in each client app.
+  auth, UI, OS integration and secure storage live in the consuming
+  application.
 - Recovery phrase (mnemonic) loss = unrecoverable data. This is a property of
   the model, not a defect to "fix" server-side.
 
@@ -44,7 +45,7 @@ block     = ciphertext || tag(16)        # AES-256-GCM output, ct||tag
 ## 2. Key hierarchy
 
 ```
-UMK   (User Master Key, per user, non-extractable from the device)
+UMK   (User Master Key, per user, held by the client)
   ├─ private_key_x25519 : 32 B (X25519)
   ├─ seed_mlkem         : 64 B = d || z (FIPS 203 seed form, 32+32)
   ├─ public_key_x25519  : 32 B = X25519(sk, basepoint)
@@ -58,7 +59,7 @@ deviceKey : 32 B secret held by the (native) device store
 
 - ML-KEM-768 seed form: `keygen(d, z)` with `seed = d || z` (64 B) —
   compatible with `@noble/post-quantum` `ml_kem768.keygen(seed)` and the Dart
-  pqcrypto bindings. Derived sizes: pk 1184, ct 1088, ss 32, dk 2400.
+  `pqcrypto` bindings. Derived sizes: pk 1184, ct 1088, ss 32, dk 2400.
 
 ## 3. File DEK wrap (envelope sent with every E2EE file)
 
@@ -83,7 +84,7 @@ envelope = {
 kem_context = enc || pkRm                      (RFC 9180 §4.1 Encap)
 eae_prk     = LabeledExtract("", "eae_prk", DH(skE, pkRm))
 shared      = LabeledExpand(eae_prk, "shared_secret", kem_context, 32)
-psk_id_hash = LabeledExtract("", "psk_id_hash", pskId)   // label: psk_id_hash
+psk_id_hash = LabeledExtract("", "psk_id_hash", pskId)
 info_hash   = LabeledExtract("", "info_hash", info)
 ks_context  = 0x01 || psk_id_hash || info_hash           // mode_psk
 secret      = LabeledExtract(shared, "secret", psk)
@@ -93,10 +94,10 @@ wrappedDek  = AES-256-GCM(key, base_nonce, DEK, aad = schemeId)
 ```
 
 - The key schedule implements RFC 9180 §4/§5 directly and is validated
-  against the official RFC vectors (§A.1.1: shared_secret, key_schedule_context,
-  secret, key, base_nonce — all byte-exact). The `hpke` crate 0.11 on
-  crates.io is RFC-final-conform; this SDK implements the schedule in-tree to
-  keep one auditable path shared by every binding.
+  against the official RFC vectors (§A.1.1 and §A.1.2: shared_secret,
+  key_schedule_context, secret, key, base_nonce — all byte-exact). This SDK
+  implements the schedule in-tree to keep one auditable path shared by every
+  binding.
 - ML-KEM encapsulation randomness is internal to the KEM; two wraps of the
   same DEK differ and both are valid.
 
@@ -113,10 +114,9 @@ wrappedDek = AES-256-GCM(wrapKey, nonce, DEK, aad = empty)
 
 - New wraps NEVER produce this scheme; every client unwraps it via the
   version dispatch (`v` field present = v2 HPKE, absent = v1). Empty HKDF
-  salt (RFC 5869 zero-salt extract) — identical to WebCrypto `deriveBits`
-  with empty salt and to `Hkdf::new(None, …)`. Unwrap: rebuild `dk` from the
-  UMK seed, `decaps(ct)`, recompute the same derivation, GCM-open. Any
-  mismatch → auth failure.
+  salt (RFC 5869 zero-salt extract). Unwrap: rebuild `dk` from the UMK seed,
+  `decaps(ct)`, recompute the same derivation, GCM-open. Any mismatch →
+  auth failure.
 
 ## 4. Symmetric wraps (sharing: links + invites)
 
@@ -137,6 +137,9 @@ wrapKey = HKDF-SHA256(deviceSecret32, salt = empty,
 plaintext = JSON { publicKeyX25519, publicKeyMlkem,
                    privateKeyX25519, seedMlkem }   // all b64
 ```
+
+`deviceSecret32` is 32 random bytes held only on the device (OS secure
+store); the server receives the wrapped blob and a public device label.
 
 ## 6. UMK mnemonic (recovery) wrap — KEK derivation
 
@@ -163,9 +166,8 @@ plaintext = JSON { v: 3, scheme: "evb-e2ee-umk-argon2id-m64-t2-p1-aesgcm",
   `evb-e2ee-umk-argon2id-m64-t3-p4-aesgcm`. Available as an explicit-params
   wrap (`wrap_umk_with_mnemonic_params`) and readable by every unwrap;
   parameters are versioned by the scheme id.
-- Measured latencies (unwrap through the versioned candidates; Windows
-  desktop native release and Node/WASM as a browser proxy — real-device
-  mobile numbers still pending, see §6.3):
+- Reference latencies for the default profile (unwrap through the versioned
+  candidates; desktop native release and Node/WASM):
 
   | Profile | Happy path (1st candidate) | Wrong phrase (3 candidates) |
   |---|---|---|
@@ -180,13 +182,12 @@ key = PBKDF2-SHA512(password = normalizedPhrase, salt, rounds = 100000, dkLen = 
 plaintext = JSON { v: 2, scheme: "evb-e2ee-umk-pbkdf2-sha512-100k-aesgcm", ... }
 ```
 
-- Read-only: historical envelopes keep opening. NOTE: the pre-fix web client
-  wrote `kdf: "argon2id"` in its wrap **metadata** while actually sealing
-  with PBKDF2 (wrap and unwrap both called the PBKDF2 path) — metadata is
-  untrusted; the versioned unwrap relies on the GCM tag, not on metadata.
+- Read-only: historical envelopes keep opening. Wrap **metadata** is
+  untrusted; the versioned unwrap relies on the AES-GCM tag, not on
+  metadata.
 - New wraps MUST NOT use this scheme (no exported wrap path; the vector-only
-  helper in `crypto-sdk/core/src/vectors.rs` exists solely to keep the frozen
-  legacy vector reproducible).
+  helper in `core/src/vectors.rs` exists solely to keep the frozen legacy
+  vector reproducible).
 
 ### 6.3 Unwrap contract (all clients)
 
@@ -197,12 +198,12 @@ the embedded `scheme`/`v` against the parameters it derived with, so an old
 ciphertext is never silently reinterpreted as a newer format.
 
 **Migration**: after a successful unwrap, re-wrap to the current scheme
-(`migrateUmkWrapToCurrentScheme` on the web; unwrap + wrap on the SDK) and
-submit only the new opaque blob to the server — the phrase, the KEK and the
-private material never leave the client.
+(unwrap + `wrap_umk_with_mnemonic` on the SDK) and submit only the new
+opaque blob to the server — the phrase, the KEK and the private material
+never leave the client.
 
-- **Normalization** (matches web `recoveryKeyCrypto.ts`): NFKD → trim →
-  lowercase → collapse internal whitespace runs to one space.
+- **Normalization** (applied by every client): NFKD → trim → lowercase →
+  collapse internal whitespace runs to one space.
 - Unwrap rejects unknown `v` / `scheme` values explicitly, and
   cross-checks the JSON publics against the private material
   (X25519 pk recomputation + ML-KEM seed re-derivation). A tampered public
@@ -210,7 +211,7 @@ private material never leave the client.
 - The KEK is never a file key: file DEKs are random per-file keys wrapped to
   the UMK (§3) — the mnemonic KEK only seals the UMK envelope.
 
-## 7. Encrypted names (P8)
+## 7. Encrypted names (metadata)
 
 - **Wire alias** (stable, visible to servers):
   `alias = "evb-" || lowercase-hex( HMAC-SHA256(nameKey, UTF-8(realName)) )`
@@ -221,7 +222,7 @@ private material never leave the client.
   `blob = b64( nonce(12) || ct || tag(16) )` under the DEK (files) or the
   folder key (folders), AES-256-GCM, aad empty.
 
-## 8. Cryptographic notes and deviations
+## 8. Cryptographic notes
 
 - **DEK wrap v2 = HPKE RFC 9180 strict** (mode PSK carrying ML-KEM-768) —
   standard construction, see §3.1. The legacy v1 hybrid (single HKDF over the
@@ -237,13 +238,13 @@ private material never leave the client.
 1. The header is exactly 16 bytes (`EVB1` + the 12-byte fileNonce). Of that
    nonce, only `fileNonce[0..4]` participates in the chunk-nonce derivation
    (`fileNonce[0..4]` + counter) — the remaining 8 bytes ride along in the
-   header. Kept byte-compatible with the deployed web format.
+   header. Preserved for wire compatibility with existing data.
 2. AAD is 8 bytes with the counter in the first 4 and zeros after — not a
    length-prefixed or typed AAD.
 3. Empty files carry a full GCM tag over an empty chunk (16 bytes), so the
    minimum payload is 32 bytes.
-4. Header-only payloads (0 blocks) are rejected by the SDK decryptor; the
-   reference web decryptor would silently return empty. SDK is stricter.
+4. Header-only payloads (0 blocks) are rejected by the SDK decryptor — the
+   SDK is stricter than strictly required.
 
 ## 10. Errors
 
@@ -259,47 +260,16 @@ Unknown **content** format versions: the EVB1 header has no version field
 beyond the magic; any future format change ships as a new magic/extension and
 must be explicit (no silent downgrade).
 
-## 11. Deviations found in the Dart clients (status 2026-11-13 — all closed)
+## 11. Test vectors
 
-The Dart implementations (agent-backup `backup_core`, mobile) shipped a
-non-canonical content format and have been **corrected to the 16-byte
-canonical header** (both now pass the frozen vectors):
-
-| Item | Web (canonical) | Dart before fix | Status |
-|---|---|---|---|
-| Header | `EVB1` + fileNonce(12) = **16 B** | magic+prefix = 8 B | ✅ fixed 2026-11-12, vector-gated |
-| AAD | BE u32 counter + 4 zero bytes | BE u64 | ✅ fixed 2026-11-12, vector-gated |
-| wrappedDek | ct‖tag (48 B) | missing GCM tag | ✅ fixed 2026-11-13 (agent + mobile), vector-gated |
-| Mnemonic unwrap | Argon2id v3 / PBKDF2 v2 + proper GCM ct‖tag | broken `SecretBox` (empty Mac), PBKDF2 only | ✅ fixed 2026-11-13 (agent + mobile): candidate chain Argon2id m64-t2-p1 → RFC 9106 m64-t3-p4 → PBKDF2, blob parsed as salt16‖iv12‖ct‖tag |
-| Mnemonic normalization | NFKD + trim + lowercase + collapse | `trim().toLowerCase()` only | ✅ fixed 2026-11-13 (agent + mobile, `unorm_dart` NFKD) |
-| DEK wrap default | HPKE v2 (RFC 9180 PSK) | legacy v1 hybrid only | ✅ fixed 2026-11-13 (agent + mobile): `wrapDekToUmk` = HPKE v2, unwrap dispatches v2/v1 — vector-gated byte-exact re-seal |
-
-Every row is now gated by the frozen vectors in each client
-(`test/e2ee_frozen_vectors_test.dart` agent + mobile: content ×9, DEK wrap
-v1 re-seal byte-exact + unwrap, DEK wrap HPKE v2 re-seal byte-exact + unwrap,
-device wrap v1, mnemonic Argon2id v3 / PBKDF2 v2 unwrap, name-alias,
-name-encrypted, NFKD normalization). **No pure-Dart path remains unverified
-against the grid.**
-
-Server-side (nodejs-api): the envelope DTO accepts both wire formats
-(dispatch on `v`; v2 requires kemId/kdfId/aeadId and forbids a transported
-nonce), migration 0074 makes `nonce` nullable and adds `kem_id/kdf_id/aead_id`
-on the three UMK-wrapped envelope tables — clients produce HPKE v2 by default.
-
-Web client (`frontend-next/utils/crypto/e2eeFileCrypto.ts`): `wrapFileDekToUmk`
-now defaults to HPKE v2 and `unwrapFileDek` dispatches v2/v1, matching the
-Rust SDK and both Dart clients. Legacy v1 data stays readable everywhere.
-
-## 12. Test vectors
-
-- File: `crypto-sdk/vectors/evb-e2ee-v1.json` (frozen artifact, deterministic:
+- File: `vectors/evb-e2ee-v1.json` (frozen artifact, deterministic:
   regenerating yields an identical file). Generated once by the Rust core:
-  `cargo run --features deterministic-vectors --example gen_vectors`
+  `cargo run --features deterministic-vectors -p evb-e2ee-core --example gen_vectors`
   (the `deterministic-vectors` feature exposes test-only APIs that accept full
   randomness material — never enabled in production builds).
 - Content plaintexts: `pattern(i) = SHA-256("EVB-VECTOR" || BE u64 i)`,
   32-byte blocks truncated to the requested length.
 - The vector mnemonic is the canonical BIP-39 test phrase
   `abandon … about` (12 words).
-- Consumers: Rust (`tests/frozen_vectors.rs`), Dart binding, WASM binding —
-  all must pass against the same frozen file before any client integration.
+- Consumers: the Rust core and the WASM and Dart bindings — all must pass
+  against the same frozen file before any release.

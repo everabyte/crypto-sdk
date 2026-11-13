@@ -1,4 +1,4 @@
-# Rust / Cargo build artifacts (rebuilt with `cargo build`)
+# ── Build artifacts (rebuilt, never published) ──
 target/
 **/target/
 
@@ -6,12 +6,32 @@ target/
 .dart_tool/
 .packages
 
-# OS noise
+# ── Sensitive material — NEVER commit ──
+# Keys, certificates, keystores
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.crt.bak
+# Environment / secrets files
+.env
+.env.*
+!.env.example
+secrets.*
+*secret*.json
+credentials*.json
+*_credentials.json
+# Test fixtures that may contain real data
+**/fixtures/private/
+**/fixtures/*real*/
+# Editor / OS noise
 .DS_Store
 Thumbs.db
 
-# NOTE: bindings/wasm/pkg and bindings/wasm/pkg-node are COMMITTED on purpose
-# — they are the prebuilt consumables (small, ~500 KB each) so that
-#   npm install github:everabyte/crypto-sdk#path:bindings/wasm/pkg
-# works without a Rust toolchain. Rebuild them with `wasm-pack build` and
-# commit the result when the core changes; tags should match the grid.
+# NOTE: bindings/wasm/pkg and bindings/wasm/pkg-node are COMMITTED on
+# purpose — they are the prebuilt consumables (~500 KB each) so that
+#   npm install everabyte/crypto-sdk#path:bindings/wasm/pkg
+# works without a Rust toolchain. Rebuild with `wasm-pack build` when the
+# core changes; the frozen vectors in vectors/ are synthetic test material.

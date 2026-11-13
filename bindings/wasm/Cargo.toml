@@ -3,7 +3,7 @@ name = "evb-e2ee-wasm"
 version = "0.1.0"
 edition = "2021"
 license = "Proprietary"
-description = "WASM binding for evb-e2ee-core: browser-side E2EE crypto for the Everabyte web client. Pure crypto/wire-format only — networking, auth and key storage stay app-side."
+description = "Everabyte client-side E2EE crypto for integrations (WASM). Pure crypto/wire-format only — networking, auth and key storage stay app-side."
 
 [lib]
 crate-type = ["cdylib", "rlib"]

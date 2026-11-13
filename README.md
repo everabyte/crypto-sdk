@@ -1,39 +1,181 @@
-# Everabyte Crypto SDK (`evb-e2ee-core`)
+# Everabyte Crypto SDK
 
-Rust core for real end-to-end encryption (E2EE) in Everabyte clients — mobile
-(Flutter), agent-backup (Flutter/Dart) and the web bundle (WASM). The servers
-(nodejs-api, golang-api) stay blind proxies: they never see private keys or
-plaintext.
+Client-side encryption library for Everabyte integrations: encrypt file
+contents and file names **on your machine**, before any network call. The
+Everabyte servers store opaque ciphertext and never receive the keys that
+open it.
 
-**Canonical wire format**: byte-exact reimplementation of the deployed web
-client format (`frontend-next/utils/crypto/e2eeFileCrypto.ts`), version
-`evb-e2ee-v1`. See [`PROTOCOL.md`](PROTOCOL.md) for the full specification.
+One protocol (`evb-e2ee-v1`), three bindings generated from the same Rust
+core — a file encrypted with one decrypts with all the others. Every binding
+opens the same frozen test vectors in CI, and the constructions are validated
+against the official test vectors of the underlying standards.
 
-## Repository
+Full guides and API walkthroughs: **https://docs.everabyte.com** (Zero-Knowledge SDK section).
 
-Public: `https://github.com/everabyte/crypto-sdk` (Cargo workspace: `core`, `bindings/wasm`, `bindings/dart/rust`; frozen vectors under `vectors/`).
+## Version
 
-## Published documentation
+Current release: **0.1.0** (see the `VERSION` file).
 
-Public-facing documentation lives in `evb-doc` (docs.everabyte.com):
+Versioning rule (strict):
 
-- `/sdk/overview` — what the SDK is, standards, language matrix, honest limits
-- `/sdk/quickstart-typescript` / `quickstart-rust` / `quickstart-dart` — full ZK round trips per binding
-- `/sdk/api-reference` — every exported function of the three bindings
-- `/sdk/protocol-reference` — the `evb-e2ee-v1` wire format (public summary of PROTOCOL.md)
-- `/sdk/migration` — moving legacy server-encrypted files to zero-knowledge
-- `/security/client-encryption` — the user-facing model description
+- Format `MAJOR.MINOR.BUILD`, each segment starts at **0** and increments.
+- `BUILD` and `MINOR` are capped at **100** — never more (e.g. `x.y.100` is
+  valid, `x.y.101` is not; the next increment moves `y` +1 and resets the
+  build to 0).
+- `MINOR` overflow moves `MAJOR` +1 and resets minor and build to 0.
+- A change to the wire format is always a new scheme id or a bumped `v`
+  field (see [`PROTOCOL.md`](PROTOCOL.md)) — never a silent reinterpretation.
 
-## Installation (public repository)
+## Installation
 
 ```bash
 git clone https://github.com/everabyte/crypto-sdk.git
 cd crypto-sdk
+```
 
-# Rust core — build + tests (frozen vectors run in CI)
-cargo test -p evb-e2ee-core
+Consumers can also install straight from this repository:
 
-# WASM binding — rebuild the committed pkg/ after core changes
+- **Node.js / npm** — prebuilt WASM, no toolchain:
+  `npm install everabyte/crypto-sdk#path:bindings/wasm/pkg-node` (npm ≥ 9.4).
+  For browsers and bundlers use `#path:bindings/wasm/pkg`.
+- **Rust (Cargo)**:
+  `evb-e2ee-core = { git = "https://github.com/everabyte/crypto-sdk.git", tag = "v0.1.0" }`
+- **Dart / Flutter**:
+  ```yaml
+  dependencies:
+    evb_e2ee_dart:
+      git:
+        url: https://github.com/everabyte/crypto-sdk.git
+        path: bindings/dart
+  ```
+  The Dart package wraps a native library built from `bindings/dart/rust`
+  (`cargo build --release -p evb_e2ee_ffi`), located via the `EVB_E2EE_LIB`
+  environment variable, or shipped with your app.
+
+## Usage
+
+### 1. Account key (UMK) — generated on the client, once
+
+The UMK is 96 bytes: 32-byte X25519 secret ‖ 64-byte ML-KEM-768 seed. Only
+public keys and wrapped copies ever leave the machine.
+
+```js
+// TypeScript / WASM
+import init, { generate_umk, umk_public_keys, wrap_umk_with_mnemonic } from "evb-e2ee-wasm";
+await init();
+
+const umk = generate_umk();                       // 96 bytes — keep client-side
+const publics = JSON.parse(umk_public_keys(umk.subarray(0, 32), umk.subarray(32)));
+const blob  = wrap_umk_with_mnemonic(umk.subarray(0, 32), umk.subarray(32), mnemonic); // recovery phrase, 12 BIP-39 words
+```
+
+```rust
+// Rust
+use evb_e2ee_core::wrap;
+
+let umk = wrap::generate_umk();
+let public = umk.public()?;
+let blob = wrap::wrap_umk_with_mnemonic(&umk, phrase, &salt16, &nonce12)?;
+```
+
+```dart
+// Dart
+final umk = EvbE2ee.generateUmk();                // 96 bytes
+final publics = EvbE2ee.umkPublicKeys(umk.sublist(0, 32), umk.sublist(32));
+final blob = EvbE2ee.wrapUmkWithMnemonic(umk.sublist(0, 32), umk.sublist(32), mnemonic);
+```
+
+Register `publics` and `blob` with the Everabyte key-chain endpoint
+(`POST /e2ee/keys/register`); keep the phrase and the private material on
+your side.
+
+### 2. Encrypt a file
+
+Every file gets a fresh 32-byte data key (DEK). The DEK encrypts the content
+(`EVB1` chunked AES-256-GCM), the file name becomes an opaque alias, and the
+DEK is wrapped to the account key:
+
+```js
+const dek = generate_random_32();                       // never persisted
+const fileNonce = generate_random_12();
+const payload = evb1_seal_all(dek, fileNonce, plaintext);
+
+const wireName = derive_wire_alias(umk.subarray(0, 32), umk.subarray(32), "report.pdf");
+const encryptedName = encrypt_file_name(dek, "report.pdf", generate_random_12());
+const envelope = wrap_dek_to_umk(dek, Buffer.from(publics.publicKeyX25519, "base64"),
+                                      Buffer.from(publics.publicKeyMlkem, "base64"));
+```
+
+```rust
+let dek = keys::generate_dek()?;
+let file_nonce = keys::generate_nonce()?;
+let payload = content::seal_all(&dek, &file_nonce, &plaintext)?;
+
+let wire_name = names::derive_opaque_wire_name(&umk, "report.pdf")?;
+let encrypted_name = names::encrypt_file_name(&dek, "report.pdf", &file_nonce)?;
+let envelope = wrap::wrap_dek_to_umk(&dek, &public)?;
+```
+
+```dart
+final dek = EvbE2ee.generateRandom32();
+final fileNonce = EvbE2ee.generateRandom12();
+final payload = EvbE2ee.evb1SealAll(dek, fileNonce, plaintext);
+
+final wireName = EvbE2ee.deriveWireAlias(umk.sublist(0, 32), umk.sublist(32), "report.pdf");
+final encryptedName = EvbE2ee.encryptFileName(dek, "report.pdf", EvbE2ee.generateRandom12());
+final envelopeJson = EvbE2ee.wrapDekToUmk(dek, x25519PubBytes, mlkemPubBytes);
+```
+
+### 3. Upload ciphertext, attach the envelope
+
+Upload the ciphertext under `wireName` through the Everabyte REST API
+(`POST /files/upload/...`), then attach the envelope by path
+(`POST /e2ee/files/by-path/envelope` with `bucketId`, `fileName: wireName`,
+`encryptedName` and the envelope fields). Complete walkthroughs:
+[docs.everabyte.com → Zero-Knowledge SDK](https://docs.everabyte.com/sdk/overview).
+
+### 4. Download and decrypt
+
+Fetch the envelope (`GET /e2ee/files/{fileId}/envelope`) and the stored
+ciphertext (`GET /files/{fileId}/stream`), then unwrap and decrypt locally:
+
+```js
+const dek = unwrap_dek_from_umk(JSON.stringify(envelope), umk.subarray(0, 32), umk.subarray(32));
+const original = evb1_open_all(dek, storedCiphertext);   // === plaintext
+const realName = decrypt_file_name(dek, envelope.encryptedName);
+```
+
+```rust
+let dek = wrap::unwrap_dek_from_umk_json(&envelope_json, &umk)?;
+let original = content::open_all(&dek, &stored_ciphertext)?;
+```
+
+```dart
+final dek = EvbE2ee.unwrapDekFromUmk(envelopeJson, umk.sublist(0, 32), umk.sublist(32));
+final original = EvbE2ee.evb1OpenAll(dek, storedCiphertext);
+```
+
+Recovery uses the same primitives: `unwrap_umk_with_mnemonic` opens a
+mnemonic wrap with the phrase (see [`PROTOCOL.md`](PROTOCOL.md) §6 for the
+scheme handling).
+
+## Scope
+
+| In the SDK | In your application |
+|---|---|
+| EVB1 chunked encryption (AES-256-GCM) | HTTP calls, authentication |
+| DEK envelopes (HPKE, X25519 + ML-KEM-768) | Key storage (keychain/KMS) |
+| Mnemonic / device / link / invite wraps | Enrollment and upload orchestration |
+| Opaque aliases + encrypted names | UI |
+| Buffer zeroization | — |
+
+## Build and test
+
+```bash
+cargo test -p evb-e2ee-core                   # unit + frozen-vector tests
+cargo test --features deterministic-vectors   # also compiles the vectors module
+
+# WASM binding (after any core change, rebuild the committed pkg/)
 wasm-pack build bindings/wasm --target web --out-dir pkg
 wasm-pack build bindings/wasm --target nodejs --out-dir pkg-node
 
@@ -41,97 +183,39 @@ wasm-pack build bindings/wasm --target nodejs --out-dir pkg-node
 cargo build --release -p evb_e2ee_ffi
 ```
 
-Consumers (no Rust toolchain needed):
-
-- **Node/npm**: `npm install everabyte/crypto-sdk#path:bindings/wasm/pkg-node` (npm >= 9.4) — use `bindings/wasm/pkg` for bundlers.
-- **Cargo**: `evb-e2ee-core = { git = "https://github.com/everabyte/crypto-sdk.git", tag = "..." }` (root workspace resolves the crate).
-- **Dart**: git dependency on `bindings/dart` + native lib built per platform (`cargo build --release -p evb_e2ee_ffi`) or fetched from GitHub Releases.
-
-## Packaging status
-
-| Artifact | State |
-|---|---|
-| GitHub repo | public, git deps usable today (this repo) |
-| crates.io (`evb-e2ee-core`) | pending — `cargo publish` (fill `repository`/`homepage` first) |
-| npm (`evb-e2ee-wasm`) | pending — `npm publish` from `bindings/wasm/pkg` |
-| pub.dev (`evb_e2ee_dart`) | pending — needs a prebuilt native binaries story (Releases/cargokit) |
-| LICENSE | **owner decision before going public** — manifests currently say `license = "Proprietary"`; a public repo without a LICENSE file is "all rights reserved" by default. Pick and add one (proprietary EULA or an open-source license) |
-
-**Pre-publish checklist**: LICENSE decided and added - external audit still pending (publication != audit) - tags matching the vector grid - GitHub Releases carrying per-platform `libevb_e2ee_ffi` binaries.
-
-## Layout
-
-```
-crypto-sdk/
-├── PROTOCOL.md            wire format specification (canonical = web)
-├── vectors/
-│   └── evb-e2ee-v1.json   frozen cross-language test vectors (18)
-└── core/
-    ├── src/
-    │   ├── content.rs     EVB1 streaming encryptor/decryptor (64 KiB chunks)
-    │   ├── wrap.rs        DEK wraps: UMK hybrid KEM, link, invite, device, mnemonic
-    │   ├── keys.rs        UMK/DEK material + random generation
-    │   ├── names.rs       opaque name aliases + encrypted real names
-    │   ├── mnemonic.rs    NFKD normalization + BIP-39 validate/generate
-    │   ├── vectors.rs     deterministic helpers (feature-gated, test-only)
-    │   └── error.rs
-    ├── examples/gen_vectors.rs
-    └── tests/             unit/integration tests + frozen-vector consumer
-```
-
-## What it does / does not do
-
-| In the SDK | NOT in the SDK (app-side) |
-|---|---|
-| EVB1 streaming AEAD chunking | HTTP/network, auth tokens |
-| X25519 + ML-KEM-768 hybrid DEK wraps | Key storage (device secure store) |
-| Mnemonic / device / link / invite wraps | UI, prompts, sync scheduling |
-| Encrypted names + HMAC aliases | Upload/download orchestration |
-| Buffer zeroization, no secret logging | SSE (`sse-v1`) legacy paths |
-
-## Build and test
+Regenerate the frozen vectors (output must be byte-identical):
 
 ```bash
-cd core
-cargo build
-cargo test                                   # 28 tests
-cargo test --features deterministic-vectors  # also compiles vectors module
-```
-
-Regenerate the frozen vectors (deterministic — output diffs must be empty):
-
-```bash
-cargo run --features deterministic-vectors --example gen_vectors \
-  > ../vectors/evb-e2ee-v1.json
+cargo run --features deterministic-vectors -p evb-e2ee-core --example gen_vectors \
+  > vectors/evb-e2ee-v1.json
 ```
 
 ## Cryptography
 
-AES-256-GCM (64 KiB chunks, per-chunk counter in nonce + AAD),
-X25519, ML-KEM-768 (FIPS 203 seed form, d‖z), HKDF-SHA256 (empty salt),
-PBKDF2-SHA512 (100k, mnemonic wrap). Crates: `aes-gcm`, `x25519-dalek`,
-`fips203`, `hkdf`, `pbkdf2`, `bip39`, `zeroize`, `rand`.
+| Purpose | Algorithm | Standard |
+|---|---|---|
+| File content | AES-256-GCM, 64 KiB chunks, per-chunk AAD | NIST SP 800-38D |
+| File-key envelopes | HPKE mode PSK, DHKEM(X25519) + ML-KEM-768 | RFC 9180, FIPS 203 |
+| Key derivation | HKDF-SHA256 | RFC 5869 |
+| Recovery-phrase KDF | Argon2id (m=64 MiB, t=2, p=1) | RFC 9106 |
+| Recovery phrase | BIP-39 English, NFKD-normalized | BIP-39 |
 
-## Status / next steps
+## Repository layout
 
-- [x] Rust core: format, wraps, names, mnemonics — tests green (28)
-- [x] Frozen vectors generated and self-verified by Rust (16-byte canonical
-      header, camelCase envelope keys, HPKE v2 envelope vector — 20 vectors)
-- [x] Dart FFI binding (`bindings/dart`) — 10/10 frozen-vector tests green
-- [x] WASM binding (`bindings/wasm`) — 16/16 frozen-vector tests green
-      (web + nodejs targets, wasm-pack)
-- [x] **DEK wrap v2 = HPKE RFC 9180 strict** (DHKEM(X25519) + ML-KEM-768 via
-      mode PSK) — key schedule validated against the official RFC vectors
-      (§A.1.1); legacy v1 hybrid stays readable via version dispatch
-- [x] **Mnemonic wrap v3 = Argon2id v1.3** (RFC 9106) — PBKDF2 read-only
-      legacy; key schedule validated, latencies measured (see PROTOCOL §6)
-- [x] agent-backup content codec aligned to the canonical format (header 16 B,
-      AAD BE u32 + zeros) — 309/309 backup_core + 553 root, vectors gated
-- [x] mobile content codec aligned to the canonical format — 223/223,
-      vectors gated
-- [x] frontend-next frozen-vector gate (`e2eeFrozenVectors.test.ts`) —
-      proves the production TS codec is byte-exact with the SDK (700/700 jest)
-- [ ] Envelope/mnemonic pure-Dart paths (agent + mobile) re-verified against
-      the frozen vectors or ported to the SDK (see PROTOCOL.md §11)
-- [ ] Client integrations (upload/download paths, envelope submission,
-      migration SSE → E2EE with explicit, loss-free controls)
+```
+crypto-sdk/
+├── Cargo.toml              workspace (core, bindings/wasm, bindings/dart/rust)
+├── VERSION                 release version
+├── PROTOCOL.md             wire format specification (evb-e2ee-v1)
+├── vectors/
+│   └── evb-e2ee-v1.json    frozen cross-language test vectors
+├── core/                   Rust core (canonical implementation)
+└── bindings/
+    ├── wasm/               WASM/TypeScript binding (+ prebuilt pkg/, pkg-node/)
+    └── dart/               Dart FFI binding (+ native crate rust/)
+```
+
+## License
+
+Proprietary — © Everabyte. See the license terms distributed with your
+Everabyte agreement.

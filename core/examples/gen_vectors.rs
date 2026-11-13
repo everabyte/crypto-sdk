@@ -315,7 +315,7 @@ fn main() {
 
     let doc = json!({
         "protocol": "evb-e2ee-v1",
-        "canonical": "format of frontend-next/utils/crypto (deployed web client)",
+        "canonical": "Everabyte zero-knowledge wire format evb-e2ee-v1",
         "generatedBy": "evb-e2ee-core 0.1.0 (example gen_vectors)",
         "note": "plaintextPattern for content vectors: pattern(i) = SHA-256(\"EVB-VECTOR\" || BE u64 i); concatenation of 32-byte blocks truncated to len",
         "vectors": vectors,
