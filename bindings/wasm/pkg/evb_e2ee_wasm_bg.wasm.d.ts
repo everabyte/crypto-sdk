@@ -1,0 +1,31 @@
+/* tslint:disable */
+/* eslint-disable */
+export const memory: WebAssembly.Memory;
+export const decrypt_file_name: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+export const derive_wire_alias: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
+export const encrypt_file_name: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
+export const evb1_open_all: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+export const evb1_seal_all: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
+export const generate_random_12: () => [number, number, number, number];
+export const generate_random_32: () => [number, number, number, number];
+export const generate_umk: () => [number, number, number, number];
+export const hkdf_sha256: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+export const umk_public_keys: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+export const unwrap_dek_from_umk: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
+export const unwrap_dek_with_invite_key: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+export const unwrap_dek_with_link_key: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+export const unwrap_umk_with_device_key: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+export const unwrap_umk_with_mnemonic: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+export const wrap_dek_to_umk: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
+export const wrap_dek_with_invite_key: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+export const wrap_dek_with_link_key: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+export const wrap_umk_with_device_key: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
+export const wrap_umk_with_mnemonic: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
+export const __wbindgen_exn_store: (a: number) => void;
+export const __externref_table_alloc: () => number;
+export const __wbindgen_externrefs: WebAssembly.Table;
+export const __wbindgen_malloc: (a: number, b: number) => number;
+export const __wbindgen_free: (a: number, b: number, c: number) => void;
+export const __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
+export const __externref_table_dealloc: (a: number) => void;
+export const __wbindgen_start: () => void;
