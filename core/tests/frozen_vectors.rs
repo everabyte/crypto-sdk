@@ -117,6 +117,16 @@ fn frozen_device_wrap_unwraps() {
 }
 
 #[test]
+fn frozen_password_wrap_unwraps() {
+    let vectors = vectors();
+    let v = find(&vectors, "umk-password-wrap", "umk-password-wrap-argon2id-v3");
+    assert_eq!(v["scheme"], wrap::UMK_WRAP_SCHEME_PASSWORD);
+    let umk = wrap::unwrap_umk_with_password(v["blob"].as_str().unwrap(), v["password"].as_str().unwrap()).unwrap();
+    assert_eq!(umk.private_key_x25519, hx(v, "privateKeyX25519")[..]);
+    assert_eq!(umk.seed_mlkem, hx(v, "seedMlkem")[..]);
+}
+
+#[test]
 fn frozen_name_vectors() {
     let vectors = vectors();
 

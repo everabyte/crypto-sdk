@@ -523,6 +523,78 @@ pub extern "C" fn evb_wrap_umk_with_device_key(
     }
 }
 
+/// Seals the UMK under the login password (Argon2id m=64 MiB t=2 p=1, scheme
+/// `evb-e2ee-umk-password-argon2id-m64-t2-p1-aesgcm`). `salt` (16 B) and
+/// `nonce` (12 B) come from the caller's CSPRNG — see `evb_random`. Output is
+/// the b64 blob (NUL-terminated; recommended capacity 8192).
+#[no_mangle]
+pub extern "C" fn evb_wrap_umk_with_password(
+    umk_sk: *const u8,
+    umk_seed: *const u8,
+    password: *const c_char,
+    salt: *const u8,
+    nonce: *const u8,
+    out_blob: *mut c_char,
+    out_cap: u64,
+) -> i32 {
+    if umk_sk.is_null() || umk_seed.is_null() || salt.is_null() || nonce.is_null() || out_blob.is_null() {
+        set_err("null argument");
+        return ERR_ARG;
+    }
+    let password = match read_str(password) {
+        Ok(s) => s,
+        Err(code) => return code,
+    };
+    let umk = UmkSecrets {
+        private_key_x25519: unsafe { slice(umk_sk, 32) }.try_into().unwrap(),
+        seed_mlkem: unsafe { slice(umk_seed, 64) }.try_into().unwrap(),
+    };
+    let salt: [u8; 16] = unsafe { slice(salt, 16) }.try_into().unwrap();
+    let nonce: [u8; 12] = unsafe { slice(nonce, 12) }.try_into().unwrap();
+    match core::wrap::wrap_umk_with_password(&umk, &password, &salt, &nonce) {
+        Ok(blob) => unsafe { write_nul_str(out_blob, out_cap, &blob) },
+        Err(e) => err_of(&e),
+    }
+}
+
+/// Opens a password wrap produced by [`evb_wrap_umk_with_password`]. Output
+/// is the 96-byte UMK written to `out_sk` (32) and `out_seed` (64).
+#[no_mangle]
+pub extern "C" fn evb_unwrap_umk_with_password(
+    blob_b64: *const c_char,
+    password: *const c_char,
+    out_sk: *mut u8,
+    out_seed: *mut u8,
+) -> i32 {
+    let blob = match read_str(blob_b64) {
+        Ok(s) => s,
+        Err(code) => return code,
+    };
+    let password = match read_str(password) {
+        Ok(s) => s,
+        Err(code) => return code,
+    };
+    if out_sk.is_null() || out_seed.is_null() {
+        set_err("null argument");
+        return ERR_ARG;
+    }
+    match core::wrap::unwrap_umk_with_password(&blob, &password) {
+        Ok(umk) => {
+            let mut sk = umk.private_key_x25519;
+            let mut seed = umk.seed_mlkem;
+            // Safety: caller-provided buffers sized 32 / 64 by contract.
+            unsafe {
+                std::ptr::copy_nonoverlapping(sk.as_ptr(), out_sk, 32);
+                std::ptr::copy_nonoverlapping(seed.as_ptr(), out_seed, 64);
+            }
+            sk.zeroize();
+            seed.zeroize();
+            OK
+        }
+        Err(e) => err_of(&e),
+    }
+}
+
 /// Encrypts a display name under the DEK. Output is the b64 blob
 /// `b64(nonce12 || ct || tag16)` (NUL-terminated); `nonce` is 12 random
 /// bytes from the caller's CSPRNG.

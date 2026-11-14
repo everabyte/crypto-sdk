@@ -3,7 +3,7 @@ description: >-
   Dart/Flutter binding for the Everabyte E2EE core (native library via FFI):
   EVB1 content encryption, key wraps, encrypted names. Pure crypto —
   networking, auth and key storage stay app-side.
-version: 0.1.0
+version: 0.2.0
 
 environment:
   sdk: ^3.5.0

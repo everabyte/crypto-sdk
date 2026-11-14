@@ -343,7 +343,7 @@ export function unwrap_dek_with_invite_key(wrap_json, key_share) {
 
 /**
  * Unwraps a DEK under a 32-byte link key. Takes the `{ wrappedDek, nonce }`
- * JSON produced by [`wrap_dek_with_link_key`] (or the web client).
+ * JSON produced by [`wrap_dek_with_link_key`].
  * @param {string} wrap_json
  * @param {Uint8Array | number[]} link_key
  * @returns {Uint8Array}
@@ -415,6 +415,33 @@ export function unwrap_umk_with_mnemonic(blob_b64, mnemonic) {
         throw e;
     }
     const ret = wasm.unwrap_umk_with_mnemonic(ptr0, len0, ptr1, len1);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    var v3 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v3;
+}
+
+/**
+ * Unwraps the UMK with the login password. Returns `sk(32) || seed(64)`.
+ * @param {string} blob_b64
+ * @param {string} password
+ * @returns {Uint8Array}
+ */
+export function unwrap_umk_with_password(blob_b64, password) {
+    let ptr0, len0, ptr1, len1;
+    try {
+        ptr0 = passStringToWasm0(blob_b64, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        len0 = WASM_VECTOR_LEN;
+        ptr1 = passStringToWasm0(password, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        len1 = WASM_VECTOR_LEN;
+    } catch (e) {
+        if (ptr1) { wasm.__wbindgen_free(ptr1, len1 * 1, 1); }
+        if (ptr0) { wasm.__wbindgen_free(ptr0, len0 * 1, 1); }
+        throw e;
+    }
+    const ret = wasm.unwrap_umk_with_password(ptr0, len0, ptr1, len1);
     if (ret[3]) {
         throw takeFromExternrefTable0(ret[2]);
     }
@@ -604,6 +631,48 @@ export function wrap_umk_with_mnemonic(umk_sk, umk_seed, mnemonic) {
             throw e;
         }
         const ret = wasm.wrap_umk_with_mnemonic(ptr0, len0, ptr1, len1, ptr2, len2);
+        var ptr4 = ret[0];
+        var len4 = ret[1];
+        if (ret[3]) {
+            ptr4 = 0; len4 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred5_0 = ptr4;
+        deferred5_1 = len4;
+        return getStringFromWasm0(ptr4, len4);
+    } finally {
+        wasm.__wbindgen_free(deferred5_0, deferred5_1, 1);
+    }
+}
+
+/**
+ * Wraps the UMK under the login password (Argon2id m=64 MiB, t=2, p=1,
+ * scheme `evb-e2ee-umk-password-argon2id-m64-t2-p1-aesgcm`). Returns the
+ * blob as base64; the server stores it as an opaque blind-proxy blob.
+ * @param {Uint8Array | number[]} umk_sk
+ * @param {Uint8Array | number[]} umk_seed
+ * @param {string} password
+ * @returns {string}
+ */
+export function wrap_umk_with_password(umk_sk, umk_seed, password) {
+    let deferred5_0;
+    let deferred5_1;
+    try {
+        let ptr0, len0, ptr1, len1, ptr2, len2;
+        try {
+            ptr0 = passArray8ToWasm0(umk_sk, wasm.__wbindgen_malloc);
+            len0 = WASM_VECTOR_LEN;
+            ptr1 = passArray8ToWasm0(umk_seed, wasm.__wbindgen_malloc);
+            len1 = WASM_VECTOR_LEN;
+            ptr2 = passStringToWasm0(password, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+            len2 = WASM_VECTOR_LEN;
+        } catch (e) {
+            if (ptr2) { wasm.__wbindgen_free(ptr2, len2 * 1, 1); }
+            if (ptr1) { wasm.__wbindgen_free(ptr1, len1 * 1, 1); }
+            if (ptr0) { wasm.__wbindgen_free(ptr0, len0 * 1, 1); }
+            throw e;
+        }
+        const ret = wasm.wrap_umk_with_password(ptr0, len0, ptr1, len1, ptr2, len2);
         var ptr4 = ret[0];
         var len4 = ret[1];
         if (ret[3]) {

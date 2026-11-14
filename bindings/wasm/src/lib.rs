@@ -133,6 +133,25 @@ pub fn unwrap_umk_with_device_key(blob_b64: &str, device_secret: &[u8]) -> Resul
         .map_err(err)
 }
 
+/// Wraps the UMK under the login password (Argon2id m=64 MiB, t=2, p=1,
+/// scheme `evb-e2ee-umk-password-argon2id-m64-t2-p1-aesgcm`). Returns the
+/// blob as base64; the server stores it as an opaque blind-proxy blob.
+#[wasm_bindgen]
+pub fn wrap_umk_with_password(umk_sk: &[u8], umk_seed: &[u8], password: &str) -> Result<String, JsError> {
+    let umk = umk_of(umk_sk, umk_seed)?;
+    let salt = core::keys::generate_salt16().map_err(err)?;
+    let nonce = core::keys::generate_nonce().map_err(err)?;
+    wrap::wrap_umk_with_password(&umk, password, &salt, &nonce).map_err(err)
+}
+
+/// Unwraps the UMK with the login password. Returns `sk(32) || seed(64)`.
+#[wasm_bindgen]
+pub fn unwrap_umk_with_password(blob_b64: &str, password: &str) -> Result<Vec<u8>, JsError> {
+    wrap::unwrap_umk_with_password(blob_b64, password)
+        .map(|umk| umk_to_bytes(&umk))
+        .map_err(err)
+}
+
 // ---------------------------------------------------------------------------
 // File DEK wrap (envelope)
 // ---------------------------------------------------------------------------

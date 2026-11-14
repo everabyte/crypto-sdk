@@ -16,11 +16,13 @@ export const unwrap_dek_with_invite_key: (a: number, b: number, c: number, d: nu
 export const unwrap_dek_with_link_key: (a: number, b: number, c: number, d: number) => [number, number, number, number];
 export const unwrap_umk_with_device_key: (a: number, b: number, c: number, d: number) => [number, number, number, number];
 export const unwrap_umk_with_mnemonic: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+export const unwrap_umk_with_password: (a: number, b: number, c: number, d: number) => [number, number, number, number];
 export const wrap_dek_to_umk: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
 export const wrap_dek_with_invite_key: (a: number, b: number, c: number, d: number) => [number, number, number, number];
 export const wrap_dek_with_link_key: (a: number, b: number, c: number, d: number) => [number, number, number, number];
 export const wrap_umk_with_device_key: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
 export const wrap_umk_with_mnemonic: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
+export const wrap_umk_with_password: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
 export const __wbindgen_exn_store: (a: number) => void;
 export const __externref_table_alloc: () => number;
 export const __wbindgen_externrefs: WebAssembly.Table;

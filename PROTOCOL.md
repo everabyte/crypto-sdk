@@ -211,6 +211,28 @@ never leave the client.
 - The KEK is never a file key: file DEKs are random per-file keys wrapped to
   the UMK (§3) — the mnemonic KEK only seals the UMK envelope.
 
+### 6.4 Password wrap (owner decision 2026-11-14, v0.2.0)
+
+The login password can also seal the UMK (`wrap_umk_with_password`) so that
+signing in on any device unlocks the vault silently — the recovery phrase is
+then strictly for account recovery. Same framing as §6: the KDF input is the
+**trimmed** password bytes (no mnemonic normalization) and the payload scheme
+id differs:
+
+```
+key = Argon2id(password = trimmedPassword, salt, m = 65536 KiB (64 MiB),
+               t = 2, p = 1, dkLen = 32, version = 0x13)
+plaintext = JSON { v: 3, scheme: "evb-e2ee-umk-password-argon2id-m64-t2-p1-aesgcm", ... }
+```
+
+- The embedded scheme id prevents kind-crossing: a password blob never opens
+  through the mnemonic unwrap and vice versa, even when the strings match.
+- Trust-model note: the mnemonic wrap resists a malicious server; the
+  password wrap is a convenience path whose KEK is derivable from the login
+  password the server legitimately sees during authentication. It is stored
+  as an opaque blind-proxy blob (one active `password` wrap per chain, see
+  `e2ee_key_wraps.wrapKind`).
+
 ## 7. Encrypted names (metadata)
 
 - **Wire alias** (stable, visible to servers):

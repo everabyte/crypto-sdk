@@ -407,6 +407,52 @@ fn umk_mnemonic_wrap_roundtrip_and_normalization_variants() {
 }
 
 #[test]
+fn umk_password_wrap_roundtrip_and_kind_isolation() {
+    let umk = fixed_umk();
+    let salt16: [u8; 16] = fixed(16, 41, 3).try_into().unwrap();
+    let nonce: [u8; NONCE_LEN] = fixed(12, 47, 9).try_into().unwrap();
+
+    let password = "correct horse battery staple  ";
+    let blob = wrap::wrap_umk_with_password(&umk, password, &salt16, &nonce).unwrap();
+
+    // Trimmed/untrimmed variants unwrap identically (mirror of localUmkCache).
+    for v in ["correct horse battery staple", "  correct horse battery staple"] {
+        let rt = wrap::unwrap_umk_with_password(&blob, v).unwrap();
+        assert_eq!(rt.private_key_x25519, umk.private_key_x25519);
+        assert_eq!(rt.seed_mlkem, umk.seed_mlkem);
+    }
+
+    // Wrong password => auth failure; tampered blob too.
+    assert!(matches!(
+        wrap::unwrap_umk_with_password(&blob, "wrong password"),
+        Err(E2eeError::AuthFailure)
+    ));
+    let raw = wrap::b64_decode(&blob).unwrap();
+    let mut bad = raw.clone();
+    let n = bad.len();
+    bad[n - 1] ^= 1;
+    assert!(matches!(
+        wrap::unwrap_umk_with_password(&wrap::b64_encode(&bad), password),
+        Err(E2eeError::AuthFailure)
+    ));
+
+    // Kind isolation: a password blob never opens through the mnemonic
+    // unwrap (payload scheme id rejected), even with the same string.
+    let mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
+    let same_string = wrap::wrap_umk_with_password(&umk, mnemonic, &salt16, &nonce).unwrap();
+    assert!(matches!(
+        wrap::unwrap_umk_with_mnemonic(&same_string, mnemonic),
+        Err(E2eeError::UnsupportedWrapScheme(_))
+    ));
+    // And a mnemonic blob never opens through the password unwrap.
+    let mnemonic_blob = wrap::wrap_umk_with_mnemonic(&umk, mnemonic, &salt16, &nonce).unwrap();
+    assert!(matches!(
+        wrap::unwrap_umk_with_password(&mnemonic_blob, mnemonic),
+        Err(E2eeError::UnsupportedWrapScheme(_))
+    ));
+}
+
+#[test]
 fn umk_wrap_rejects_tampered_public_keys() {
     // Tamper with the stored public keys inside the wrap payload: the
     // private/public cross-check must reject.

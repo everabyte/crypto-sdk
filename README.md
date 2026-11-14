@@ -97,6 +97,11 @@ final publics = EvbE2ee.umkPublicKeys(umk.sublist(0, 32), umk.sublist(32));
 final blob = EvbE2ee.wrapUmkWithMnemonic(umk.sublist(0, 32), umk.sublist(32), mnemonic);
 ```
 
+Besides the recovery phrase, the UMK can be sealed under the **login
+password** (`wrap_umk_with_password`) so sign-in on any device unlocks the
+vault silently — the phrase stays strictly for account recovery (see
+PROTOCOL.md §6.4).
+
 Register `publics` and `blob` with the Everabyte key-chain endpoint
 (`POST /e2ee/keys/register`); keep the phrase and the private material on
 your side.

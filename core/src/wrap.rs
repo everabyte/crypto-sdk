@@ -587,6 +587,58 @@ fn umk_from_json_fields(
 }
 
 // ---------------------------------------------------------------------------
+// UMK password wrap (owner decision 2026-11-14, Tresorit/Proton-like unlock):
+// KEK = Argon2id(login password), same framing as the mnemonic wrap
+// b64(salt16 || nonce12 || ct||tag) with the payload scheme id set to the
+// password scheme. The scheme id prevents kind-crossing: a password blob
+// never opens through the mnemonic unwrap and vice versa.
+// ---------------------------------------------------------------------------
+
+pub const UMK_WRAP_SCHEME_PASSWORD: &str = "evb-e2ee-umk-password-argon2id-m64-t2-p1-aesgcm";
+
+/// Mirror of the web client's localUmkCache: trimmed password bytes feed the
+/// KDF, so leading/trailing whitespace never changes the KEK.
+fn password_bytes(password: &str) -> &[u8] {
+    password.trim().as_bytes()
+}
+
+/// Wraps the UMK under the login password with the default Argon2id profile
+/// (m=64 MiB, t=2, p=1). Stored server-side as an opaque blob (blind proxy) —
+/// the server never derives or sees the KEK.
+pub fn wrap_umk_with_password(
+    umk: &UmkSecrets,
+    password: &str,
+    salt16: &[u8; PBKDF2_SALT_LEN],
+    nonce: &[u8; NONCE_LEN],
+) -> Result<String> {
+    let kek = argon2id_kek(password_bytes(password), salt16, ARGON2ID_M_KIB, ARGON2ID_T, ARGON2ID_P)?;
+    seal_mnemonic_blob(umk, salt16, nonce, 3, UMK_WRAP_SCHEME_PASSWORD, &kek)
+}
+
+/// Unwraps a password wrap. Single candidate (the default Argon2id profile) —
+/// password wraps are new, no legacy reading. A wrong password fails on the
+/// GCM tag; a mnemonic blob fails on the payload scheme id even if a
+/// coincidental password could open it.
+pub fn unwrap_umk_with_password(blob_b64: &str, password: &str) -> Result<UmkSecrets> {
+    let (salt, nonce, ct_tag) = parse_mnemonic_blob(blob_b64)?;
+    let kek = argon2id_kek(password_bytes(password), &salt, ARGON2ID_M_KIB, ARGON2ID_T, ARGON2ID_P)?;
+    let plaintext = GcmBox::open(&kek, &nonce, &ct_tag, &[]).map_err(|_| E2eeError::AuthFailure)?;
+    let payload: MnemonicWrapPayload =
+        serde_json::from_slice(&plaintext).map_err(|_| E2eeError::InvalidPayload("password wrap json"))?;
+    match (payload.v, payload.scheme.as_str()) {
+        (3, UMK_WRAP_SCHEME_PASSWORD) => {}
+        (2, _) | (3, _) => return Err(E2eeError::UnsupportedWrapScheme(payload.scheme.clone())),
+        (v, _) => return Err(E2eeError::UnsupportedWrapVersion(v)),
+    }
+    umk_from_json_fields(
+        &payload.private_key_x25519,
+        &payload.seed_mlkem,
+        &payload.public_key_x25519,
+        &payload.public_key_mlkem,
+    )
+}
+
+// ---------------------------------------------------------------------------
 // Vector-support internals (public to the `deterministic-vectors` module only)
 // ---------------------------------------------------------------------------
 

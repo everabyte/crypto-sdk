@@ -75,6 +75,23 @@ int32_t evb_wrap_umk_with_device_key(const uint8_t *umk_sk,
                                      const uint8_t *nonce,
                                      char *out_blob, uint64_t out_cap);
 
+/* Password wrap (owner decision 2026-11-14): KEK = Argon2id(login password),
+ * scheme `evb-e2ee-umk-password-argon2id-m64-t2-p1-aesgcm`. The server stores
+ * the blob as an opaque blind-proxy value. salt=16 B, nonce=12 B (CSPRNG). */
+int32_t evb_wrap_umk_with_password(const uint8_t *umk_sk,
+                                   const uint8_t *umk_seed,
+                                   const char *password,
+                                   const uint8_t *salt,
+                                   const uint8_t *nonce,
+                                   char *out_blob, uint64_t out_cap);
+
+/* Opens a password wrap (single Argon2id candidate; the GCM tag decides).
+ * Output: 96 bytes = sk ‖ seed. */
+int32_t evb_unwrap_umk_with_password(const char *blob_b64,
+                                     const char *password,
+                                     uint8_t *out_sk,
+                                     uint8_t *out_seed);
+
 /* ── File data key (DEK, 32 B) envelope ──────────────────────────────── */
 
 /* HPKE v2 envelope as JSON (scheme evb-e2ee-file-wrap-hpke-psk-v1):

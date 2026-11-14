@@ -67,7 +67,7 @@ export function unwrap_dek_with_invite_key(wrap_json: string, key_share: Uint8Ar
 
 /**
  * Unwraps a DEK under a 32-byte link key. Takes the `{ wrappedDek, nonce }`
- * JSON produced by [`wrap_dek_with_link_key`] (or the web client).
+ * JSON produced by [`wrap_dek_with_link_key`].
  */
 export function unwrap_dek_with_link_key(wrap_json: string, link_key: Uint8Array | number[]): Uint8Array;
 
@@ -80,6 +80,11 @@ export function unwrap_umk_with_device_key(blob_b64: string, device_secret: Uint
  * Unwraps the UMK with the recovery mnemonic. Returns `sk(32) || seed(64)`.
  */
 export function unwrap_umk_with_mnemonic(blob_b64: string, mnemonic: string): Uint8Array;
+
+/**
+ * Unwraps the UMK with the login password. Returns `sk(32) || seed(64)`.
+ */
+export function unwrap_umk_with_password(blob_b64: string, password: string): Uint8Array;
 
 /**
  * Wraps a file DEK to the recipient UMK (hybrid X25519 + ML-KEM-768).
@@ -109,6 +114,13 @@ export function wrap_umk_with_device_key(umk_sk: Uint8Array | number[], umk_seed
  */
 export function wrap_umk_with_mnemonic(umk_sk: Uint8Array | number[], umk_seed: Uint8Array | number[], mnemonic: string): string;
 
+/**
+ * Wraps the UMK under the login password (Argon2id m=64 MiB, t=2, p=1,
+ * scheme `evb-e2ee-umk-password-argon2id-m64-t2-p1-aesgcm`). Returns the
+ * blob as base64; the server stores it as an opaque blind-proxy blob.
+ */
+export function wrap_umk_with_password(umk_sk: Uint8Array | number[], umk_seed: Uint8Array | number[], password: string): string;
+
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
@@ -128,11 +140,13 @@ export interface InitOutput {
     readonly unwrap_dek_with_link_key: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly unwrap_umk_with_device_key: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly unwrap_umk_with_mnemonic: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+    readonly unwrap_umk_with_password: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly wrap_dek_to_umk: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
     readonly wrap_dek_with_invite_key: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly wrap_dek_with_link_key: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly wrap_umk_with_device_key: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
     readonly wrap_umk_with_mnemonic: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
+    readonly wrap_umk_with_password: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
     readonly __wbindgen_exn_store: (a: number) => void;
     readonly __externref_table_alloc: () => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;

@@ -234,6 +234,24 @@ fn main() {
         "blob": device_blob,
     }));
 
+    // ---- UMK password wrap vector (owner decision 2026-11-14) ---------------
+    // Same framing as the mnemonic wrap; scheme id inside the payload.
+    let password = "vector-password-2026";
+    let password_blob = wrap::wrap_umk_with_password(&umk, password, &salt, &file_nonce).unwrap();
+    vectors.push(json!({
+        "kind": "umk-password-wrap",
+        "id": "umk-password-wrap-argon2id-v3",
+        "password": password,
+        "privateKeyX25519": hx(&umk_sk),
+        "seedMlkem": hx(&umk_seed),
+        "publicKeyX25519": hx(&public_key_x25519),
+        "publicKeyMlkem": hx(&public_key_mlkem),
+        "salt": hx(&salt),
+        "iv": hx(&file_nonce),
+        "blob": password_blob,
+        "scheme": "evb-e2ee-umk-password-argon2id-m64-t2-p1-aesgcm",
+    }));
+
     // ---- names --------------------------------------------------------------
     let real_name = "budget 2026 (final).xlsx";
     let wire_name = evb_e2ee_core::names::derive_opaque_wire_name(&umk, real_name).unwrap();
@@ -316,7 +334,7 @@ fn main() {
     let doc = json!({
         "protocol": "evb-e2ee-v1",
         "canonical": "Everabyte zero-knowledge wire format evb-e2ee-v1",
-        "generatedBy": "evb-e2ee-core 0.1.0 (example gen_vectors)",
+        "generatedBy": "evb-e2ee-core 0.2.0 (example gen_vectors)",
         "note": "plaintextPattern for content vectors: pattern(i) = SHA-256(\"EVB-VECTOR\" || BE u64 i); concatenation of 32-byte blocks truncated to len",
         "vectors": vectors,
     });

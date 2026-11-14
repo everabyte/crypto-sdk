@@ -1,6 +1,6 @@
 [package]
 name = "evb-e2ee-wasm"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 license = "Proprietary"
 description = "Everabyte client-side E2EE crypto for integrations (WASM). Pure crypto/wire-format only — networking, auth and key storage stay app-side."

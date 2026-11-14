@@ -120,6 +120,15 @@ void main() {
       expect(toHex(combined.sublist(32, 96)), v['seedMlkem']);
     });
 
+    test('password wrap unwrap (Argon2id v3, login password)', () {
+      final v =
+          find(vectors, 'umk-password-wrap', 'umk-password-wrap-argon2id-v3');
+      expect(v['scheme'], 'evb-e2ee-umk-password-argon2id-m64-t2-p1-aesgcm');
+      final combined = sdk.unwrapUmkWithPassword(v['blob'], v['password']);
+      expect(toHex(combined.sublist(0, 32)), v['privateKeyX25519']);
+      expect(toHex(combined.sublist(32, 96)), v['seedMlkem']);
+    });
+
     test('wire alias', () {
       final v = find(vectors, 'name-alias', 'name-alias');
       final alias = sdk.deriveWireAlias(

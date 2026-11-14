@@ -84,6 +84,9 @@ class EvbE2ee {
       Pointer<Int8>, int) _wrapDekToUmk;
   late final int Function(
       Pointer<Int8>, Pointer<Int8>, Pointer<Uint8>, Pointer<Uint8>) _unwrapUmk;
+  late final int Function(
+      Pointer<Int8>, Pointer<Int8>, Pointer<Uint8>, Pointer<Uint8>)
+      _unwrapUmkPassword;
   late final int Function(Pointer<Uint8>, Pointer<Uint8>, Pointer<Int8>,
       Pointer<Int8>, int) _deriveWireAlias;
   late final int Function(
@@ -123,6 +126,12 @@ class EvbE2ee {
             NativeFunction<
                 Int32 Function(Pointer<Int8>, Pointer<Int8>, Pointer<Uint8>,
                     Pointer<Uint8>)>>('evb_unwrap_umk_with_mnemonic')
+        .asFunction();
+    _unwrapUmkPassword = lib
+        .lookup<
+            NativeFunction<
+                Int32 Function(Pointer<Int8>, Pointer<Int8>, Pointer<Uint8>,
+                    Pointer<Uint8>)>>('evb_unwrap_umk_with_password')
         .asFunction();
     _deriveWireAlias = lib
         .lookup<
@@ -279,6 +288,29 @@ class EvbE2ee {
     } finally {
       calloc.free(blobP);
       calloc.free(phraseP);
+      calloc.free(outSk);
+      calloc.free(outSeed);
+    }
+  }
+
+  // ---- Password wrap ------------------------------------------------------
+
+  /// Unwraps a password wrap (login-password KEK, see PROTOCOL.md §6.4).
+  /// Returns the 96-byte UMK: sk(32) ‖ seed(64).
+  Uint8List unwrapUmkWithPassword(String blobB64, String password) {
+    final blobP = blobB64.toNativeUtf8().cast<Int8>();
+    final passwordP = password.toNativeUtf8().cast<Int8>();
+    final outSk = calloc<Uint8>(32);
+    final outSeed = calloc<Uint8>(64);
+    try {
+      final code = _unwrapUmkPassword(blobP, passwordP, outSk, outSeed);
+      if (code != ok) _fail(code);
+      final sk = Uint8List.fromList(outSk.asTypedList(32).sublist(0));
+      final seed = Uint8List.fromList(outSeed.asTypedList(64).sublist(0));
+      return Uint8List.fromList([...sk, ...seed]);
+    } finally {
+      calloc.free(blobP);
+      calloc.free(passwordP);
       calloc.free(outSk);
       calloc.free(outSeed);
     }
