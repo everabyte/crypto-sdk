@@ -169,6 +169,39 @@ void main() {
         throwsA(isA<EvbFfiException>()),
       );
     });
+
+    test('opaque backup paths and ancestor aliases', () {
+      final sk = Uint8List(32)..fillRange(0, 32, 0x21);
+      final seed = Uint8List(64)..fillRange(0, 64, 0x22);
+      const path = 'documents/2026/report.pdf';
+      final alias = sdk.deriveOpaqueManifestPath(sk, seed, path);
+      final ancestors = sdk.deriveOpaquePathAncestors(sk, seed, path);
+
+      expect(alias, startsWith('evb-'));
+      expect(alias, hasLength(68));
+      expect(ancestors, hasLength(3));
+      expect(ancestors.last, alias);
+      expect(ancestors[0], sdk.deriveOpaqueManifestPath(sk, seed, 'documents'));
+      expect(ancestors[1], sdk.deriveOpaqueManifestPath(sk, seed, 'documents/2026'));
+      expect(() => sdk.deriveOpaqueManifestPath(sk, seed, '../secret'),
+          throwsA(isA<EvbFfiException>()));
+    });
+
+    test('opaque content hash and encrypted metadata roundtrip', () {
+      final sk = Uint8List(32)..fillRange(0, 32, 0x31);
+      final seed = Uint8List(64)..fillRange(0, 64, 0x32);
+      final digest = 'ab' * 32;
+      final token = sdk.deriveOpaqueContentHash(sk, seed, digest);
+      final encryptedPath = sdk.encryptManifestPath(sk, seed, 'a/b/report.pdf');
+      final encryptedHash = sdk.encryptManifestContentHash(sk, seed, digest);
+
+      expect(token, hasLength(64));
+      expect(sdk.deriveOpaqueContentHash(sk, seed, digest.toUpperCase()), token);
+      expect(sdk.decryptManifestPath(sk, seed, encryptedPath), 'a/b/report.pdf');
+      expect(sdk.decryptManifestContentHash(sk, seed, encryptedHash), digest);
+      expect(() => sdk.decryptManifestPath(Uint8List(32), seed, encryptedPath),
+          throwsA(isA<EvbFfiException>()));
+    });
   });
 }
 

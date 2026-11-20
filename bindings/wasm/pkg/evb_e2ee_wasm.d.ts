@@ -6,6 +6,25 @@
  */
 export function decrypt_file_name(dek: Uint8Array | number[], blob_b64: string): string;
 
+export function decrypt_manifest_content_hash(umk_sk: Uint8Array | number[], umk_seed: Uint8Array | number[], blob: string): string;
+
+export function decrypt_manifest_path(umk_sk: Uint8Array | number[], umk_seed: Uint8Array | number[], blob: string): string;
+
+/**
+ * Deterministic HMAC token for a lowercase or uppercase 64-character SHA-256 hex digest.
+ */
+export function derive_opaque_content_hash(umk_sk: Uint8Array | number[], umk_seed: Uint8Array | number[], sha256_hex: string): string;
+
+/**
+ * Stable HMAC alias for a normalized relative backup path.
+ */
+export function derive_opaque_manifest_path(umk_sk: Uint8Array | number[], umk_seed: Uint8Array | number[], path: string): string;
+
+/**
+ * Returns root-to-leaf path-prefix aliases as a JSON array of strings.
+ */
+export function derive_opaque_path_ancestors(umk_sk: Uint8Array | number[], umk_seed: Uint8Array | number[], path: string): string;
+
 /**
  * Opaque wire alias: `evb-` + hex(HMAC-SHA256(nameKey, realName)).
  */
@@ -16,6 +35,16 @@ export function derive_wire_alias(umk_sk: Uint8Array | number[], umk_seed: Uint8
  * returns base64(nonce12 || ct || tag).
  */
 export function encrypt_file_name(dek: Uint8Array | number[], real_name: string, nonce: Uint8Array | number[]): string;
+
+/**
+ * Encrypts a 64-character SHA-256 hex digest with a fresh nonce.
+ */
+export function encrypt_manifest_content_hash(umk_sk: Uint8Array | number[], umk_seed: Uint8Array | number[], sha256_hex: string): string;
+
+/**
+ * Encrypts a normalized relative path with a fresh nonce; returns the versioned `v1:` blob.
+ */
+export function encrypt_manifest_path(umk_sk: Uint8Array | number[], umk_seed: Uint8Array | number[], path: string): string;
 
 /**
  * Opens a whole EVB1 payload and returns the plaintext.
@@ -126,8 +155,15 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly decrypt_file_name: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+    readonly decrypt_manifest_content_hash: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
+    readonly decrypt_manifest_path: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
+    readonly derive_opaque_content_hash: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
+    readonly derive_opaque_manifest_path: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
+    readonly derive_opaque_path_ancestors: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
     readonly derive_wire_alias: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
     readonly encrypt_file_name: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
+    readonly encrypt_manifest_content_hash: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
+    readonly encrypt_manifest_path: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
     readonly evb1_open_all: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly evb1_seal_all: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
     readonly generate_random_12: () => [number, number, number, number];

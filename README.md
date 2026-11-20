@@ -1,9 +1,11 @@
 # Everabyte Crypto SDK
 
 Client-side encryption library for Everabyte integrations: encrypt file
-contents and file names **on your machine**, before any network call. The
-Everabyte servers store opaque ciphertext and never receive the keys that
-open it.
+contents and a recoverable encrypted copy of file names **on your machine**,
+before any network call. The current Drive policy also sends the real file
+name and extension for display while locked, so those two metadata fields are
+visible to Everabyte's server. The server never receives the keys that open
+the content ciphertext.
 
 One protocol (`evb-e2ee-v1`), three bindings generated from the same Rust
 core — a file encrypted with one decrypts with all the others. Every binding
@@ -14,7 +16,7 @@ Full guides and API walkthroughs: **https://docs.everabyte.com** (Zero-Knowledge
 
 ## Version
 
-Current release: **0.1.0** (see the `VERSION` file).
+Working SDK version: **0.3.0** (see the `VERSION` file; release tag is created only after its verification gates pass).
 
 Versioning rule (strict):
 
@@ -39,7 +41,7 @@ Or install directly from this repository, per language:
 |---|---|
 | Node.js | `npm install everabyte/crypto-sdk#path:bindings/wasm/pkg-node` (npm ≥ 9.4) |
 | Browsers/bundlers | `npm install everabyte/crypto-sdk#path:bindings/wasm/pkg` |
-| Rust | `evb-e2ee-core = { git = "https://github.com/everabyte/crypto-sdk.git", tag = "v0.1.0" }` |
+| Rust | `evb-e2ee-core = { git = "https://github.com/everabyte/crypto-sdk.git", tag = "v0.3.0" }` (after release gates pass) |
 | Dart/Flutter | pub git dependency on `bindings/dart` (+ native lib `cargo build --release -p evb_e2ee_ffi`) |
 | PHP 8 / Java 22+ / C# / Go | any C FFI against `evb_e2ee_ffi` — header in `include/evb_e2ee.h`, see https://docs.everabyte.com/sdk/quickstart-php (and java/csharp/golang) |
 
@@ -51,7 +53,7 @@ Consumers can also install straight from this repository:
   `npm install everabyte/crypto-sdk#path:bindings/wasm/pkg-node` (npm ≥ 9.4).
   For browsers and bundlers use `#path:bindings/wasm/pkg`.
 - **Rust (Cargo)**:
-  `evb-e2ee-core = { git = "https://github.com/everabyte/crypto-sdk.git", tag = "v0.1.0" }`
+  `evb-e2ee-core = { git = "https://github.com/everabyte/crypto-sdk.git", tag = "v0.3.0" }` (after release gates pass)
 - **Dart / Flutter**:
   ```yaml
   dependencies:
@@ -109,15 +111,18 @@ your side.
 ### 2. Encrypt a file
 
 Every file gets a fresh 32-byte data key (DEK). The DEK encrypts the content
-(`EVB1` chunked AES-256-GCM), the file name becomes an opaque alias, and the
-DEK is wrapped to the account key:
+(`EVB1` chunked AES-256-GCM) and an encrypted copy of the display name, then
+is wrapped to the account key. Current Drive uploads keep the real file name
+and extension in the server database by product decision. Opaque name aliases
+remain available for names that the application chooses to hide, such as
+folder names:
 
 ```js
 const dek = generate_random_32();                       // never persisted
 const fileNonce = generate_random_12();
 const payload = evb1_seal_all(dek, fileNonce, plaintext);
 
-const wireName = derive_wire_alias(umk.subarray(0, 32), umk.subarray(32), "report.pdf");
+const folderAlias = derive_wire_alias(umk.subarray(0, 32), umk.subarray(32), "Reports");
 const encryptedName = encrypt_file_name(dek, "report.pdf", generate_random_12());
 const envelope = wrap_dek_to_umk(dek, Buffer.from(publics.publicKeyX25519, "base64"),
                                       Buffer.from(publics.publicKeyMlkem, "base64"));
@@ -128,7 +133,7 @@ let dek = keys::generate_dek()?;
 let file_nonce = keys::generate_nonce()?;
 let payload = content::seal_all(&dek, &file_nonce, &plaintext)?;
 
-let wire_name = names::derive_opaque_wire_name(&umk, "report.pdf")?;
+let folder_alias = names::derive_opaque_wire_name(&umk, "Reports")?;
 let encrypted_name = names::encrypt_file_name(&dek, "report.pdf", &file_nonce)?;
 let envelope = wrap::wrap_dek_to_umk(&dek, &public)?;
 ```
@@ -138,17 +143,18 @@ final dek = EvbE2ee.generateRandom32();
 final fileNonce = EvbE2ee.generateRandom12();
 final payload = EvbE2ee.evb1SealAll(dek, fileNonce, plaintext);
 
-final wireName = EvbE2ee.deriveWireAlias(umk.sublist(0, 32), umk.sublist(32), "report.pdf");
+final folderAlias = EvbE2ee.deriveWireAlias(umk.sublist(0, 32), umk.sublist(32), "Reports");
 final encryptedName = EvbE2ee.encryptFileName(dek, "report.pdf", EvbE2ee.generateRandom12());
 final envelopeJson = EvbE2ee.wrapDekToUmk(dek, x25519PubBytes, mlkemPubBytes);
 ```
 
 ### 3. Upload ciphertext, attach the envelope
 
-Upload the ciphertext under `wireName` through the Everabyte REST API
+Upload the ciphertext under the real filename through the Everabyte REST API
 (`POST /files/upload/...`), then attach the envelope by path
-(`POST /e2ee/files/by-path/envelope` with `bucketId`, `fileName: wireName`,
-`encryptedName` and the envelope fields). Complete walkthroughs:
+(`POST /e2ee/files/by-path/envelope` with `bucketId`, the same real `fileName`,
+`encryptedName` and the envelope fields). Folder APIs use `folderAlias` when
+the name must be hidden from the server. Complete walkthroughs:
 [docs.everabyte.com → Zero-Knowledge SDK](https://docs.everabyte.com/sdk/overview).
 
 ### 4. Download and decrypt
@@ -176,6 +182,24 @@ Recovery uses the same primitives: `unwrap_umk_with_mnemonic` opens a
 mnemonic wrap with the phrase (see [`PROTOCOL.md`](PROTOCOL.md) §6 for the
 scheme handling).
 
+### Opaque backup manifest metadata
+
+Use the UMK-derived aliases for server-side lookup, and keep the recoverable
+path and raw SHA-256 digest in authenticated ciphertext. The server may compare
+the HMAC token for deduplication but cannot reverse it without the client key:
+
+```js
+const wirePath = derive_opaque_manifest_path(umk.subarray(0, 32), umk.subarray(32), relativePath);
+const pathAncestors = JSON.parse(derive_opaque_path_ancestors(umk.subarray(0, 32), umk.subarray(32), relativePath));
+const contentToken = derive_opaque_content_hash(umk.subarray(0, 32), umk.subarray(32), sha256Hex);
+const encryptedPath = encrypt_manifest_path(umk.subarray(0, 32), umk.subarray(32), relativePath);
+const encryptedHash = encrypt_manifest_content_hash(umk.subarray(0, 32), umk.subarray(32), sha256Hex);
+```
+
+The Dart FFI exposes the same operations as `deriveOpaqueManifestPath`,
+`deriveOpaquePathAncestors`, `deriveOpaqueContentHash`, `encryptManifestPath`,
+and `encryptManifestContentHash` (plus their decrypt counterparts).
+
 ## Scope
 
 | In the SDK | In your application |
@@ -183,7 +207,8 @@ scheme handling).
 | EVB1 chunked encryption (AES-256-GCM) | HTTP calls, authentication |
 | DEK envelopes (HPKE, X25519 + ML-KEM-768) | Key storage (keychain/KMS) |
 | Mnemonic / device / link / invite wraps | Enrollment and upload orchestration |
-| Opaque aliases + encrypted names | UI |
+| Opaque name/path aliases + encrypted names and backup metadata | UI |
+| HMAC equality tokens + encrypted restore paths/digests | Backup orchestration |
 | Buffer zeroization | — |
 
 ## Build and test

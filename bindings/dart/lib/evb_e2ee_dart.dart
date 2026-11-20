@@ -339,6 +339,73 @@ class EvbE2ee {
     }
   }
 
+  String _metadataString(String symbol, Uint8List umkSk, Uint8List umkSeed,
+      String input) {
+    _checkLen(umkSk, 32, 'umkSk');
+    _checkLen(umkSeed, 64, 'umkSeed');
+    final inputP = input.toNativeUtf8().cast<Int8>();
+    final skP = _copyIn(umkSk);
+    final seedP = _copyIn(umkSeed);
+    final outCap = input.length * 100 + 1024;
+    final out = calloc<Int8>(outCap);
+    final call = lib
+        .lookup<
+            NativeFunction<
+                Int32 Function(Pointer<Uint8>, Pointer<Uint8>, Pointer<Int8>,
+                    Pointer<Int8>, Uint64)>>(symbol)
+        .asFunction<int Function(Pointer<Uint8>, Pointer<Uint8>, Pointer<Int8>,
+            Pointer<Int8>, int)>();
+    try {
+      final code = call(skP, seedP, inputP, out, outCap);
+      if (code != ok) _fail(code);
+      return out.cast<Utf8>().toDartString();
+    } finally {
+      calloc.free(inputP);
+      calloc.free(skP);
+      calloc.free(seedP);
+      calloc.free(out);
+    }
+  }
+
+  /// HMAC alias for a normalized relative backup path (`evb-` + lowercase hex).
+  String deriveOpaqueManifestPath(
+          Uint8List umkSk, Uint8List umkSeed, String path) =>
+      _metadataString('evb_derive_opaque_manifest_path', umkSk, umkSeed, path);
+
+  /// Opaque HMAC aliases for every path prefix, from root to leaf.
+  List<String> deriveOpaquePathAncestors(
+          Uint8List umkSk, Uint8List umkSeed, String path) =>
+      (jsonDecode(_metadataString(
+                  'evb_derive_opaque_path_ancestors', umkSk, umkSeed, path))
+              as List)
+          .cast<String>();
+
+  /// Deterministic HMAC token for a SHA-256 hex digest.
+  String deriveOpaqueContentHash(
+          Uint8List umkSk, Uint8List umkSeed, String sha256Hex) =>
+      _metadataString(
+          'evb_derive_opaque_content_hash', umkSk, umkSeed, sha256Hex);
+
+  /// Encrypts a normalized backup path with a fresh nonce (`v1:` wire blob).
+  String encryptManifestPath(
+          Uint8List umkSk, Uint8List umkSeed, String path) =>
+      _metadataString('evb_encrypt_manifest_path', umkSk, umkSeed, path);
+
+  String decryptManifestPath(
+          Uint8List umkSk, Uint8List umkSeed, String encryptedPath) =>
+      _metadataString(
+          'evb_decrypt_manifest_path', umkSk, umkSeed, encryptedPath);
+
+  String encryptManifestContentHash(
+          Uint8List umkSk, Uint8List umkSeed, String sha256Hex) =>
+      _metadataString(
+          'evb_encrypt_manifest_content_hash', umkSk, umkSeed, sha256Hex);
+
+  String decryptManifestContentHash(
+          Uint8List umkSk, Uint8List umkSeed, String encryptedHash) =>
+      _metadataString('evb_decrypt_manifest_content_hash', umkSk, umkSeed,
+          encryptedHash);
+
   // ---- Primitives ---------------------------------------------------------
 
   Uint8List hkdfSha256(Uint8List ikm, Uint8List info) {

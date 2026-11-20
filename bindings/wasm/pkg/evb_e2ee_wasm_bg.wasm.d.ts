@@ -2,8 +2,15 @@
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
 export const decrypt_file_name: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+export const decrypt_manifest_content_hash: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
+export const decrypt_manifest_path: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
+export const derive_opaque_content_hash: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
+export const derive_opaque_manifest_path: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
+export const derive_opaque_path_ancestors: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
 export const derive_wire_alias: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
 export const encrypt_file_name: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
+export const encrypt_manifest_content_hash: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
+export const encrypt_manifest_path: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
 export const evb1_open_all: (a: number, b: number, c: number, d: number) => [number, number, number, number];
 export const evb1_seal_all: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
 export const generate_random_12: () => [number, number, number, number];

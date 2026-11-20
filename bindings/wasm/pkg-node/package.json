@@ -1,7 +1,7 @@
 {
   "name": "evb-e2ee-wasm",
   "description": "Everabyte client-side E2EE crypto for integrations (WASM). Pure crypto/wire-format only — networking, auth and key storage stay app-side.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "license": "Proprietary",
   "files": [
     "evb_e2ee_wasm_bg.wasm",

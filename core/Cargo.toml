@@ -1,8 +1,8 @@
 [package]
 name = "evb-e2ee-core"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
-description = "Everabyte client-side E2EE core: EVB1 content format, key wraps, encrypted names. Never exposes secrets in logs."
+description = "Everabyte client-side E2EE core: EVB1 content, key wraps, encrypted names and opaque backup metadata. Never exposes secrets in logs."
 license = "Proprietary"
 
 [features]

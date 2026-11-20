@@ -189,7 +189,7 @@ dependencies = [
 
 [[package]]
 name = "evb-e2ee-core"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "aes-gcm",
  "argon2",
@@ -212,7 +212,7 @@ dependencies = [
 
 [[package]]
 name = "evb-e2ee-ffi"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "evb-e2ee-core",
  "serde_json",

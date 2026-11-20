@@ -8,9 +8,11 @@
 
 ## 0. Scope and trust model
 
-- Everything in this document happens **client-side only**. Everabyte's
-  servers act as blind proxies: they store/relay ciphertext, envelopes and
-  metadata and **never** receive private keys or plaintext.
+- File-content encryption and key operations happen **client-side only**.
+  Everabyte's servers act as blind proxies for ciphertext and envelopes and
+  never receive private keys or file-content plaintext. Applications can
+  choose to expose selected metadata; the current Drive policy leaves real
+  file names and extensions visible to the server for locked-state display.
 - The SDK covers crypto and wire format only: streaming chunking, key
   derivation, wraps, encrypted names, sensitive-buffer hygiene. Networking,
   auth, UI, OS integration and secure storage live in the consuming
@@ -31,7 +33,7 @@ block     = ciphertext || tag(16)        # AES-256-GCM output, ct||tag
   chunk** (a lone 16-byte tag). Chunk count = `ceil(len / 65536)`, minimum 1.
 - **fileNonce**: 12 random bytes, per file. Bytes `[4..12]` are **transported
   but unused** by the nonce derivation (v1 quirk, kept for wire
-  compatibility — see §9).
+  compatibility — see §10).
 - **chunkNonce(i)** = `fileNonce[0..4] || BE u64(i)` (12 bytes total).
 - **AAD(i)** = 8 bytes: `BE u32(i)` in bytes 0..4, zeros in bytes 4..8.
   This binds chunk position/order: reordering or splicing chunks fails the
@@ -235,16 +237,68 @@ plaintext = JSON { v: 3, scheme: "evb-e2ee-umk-password-argon2id-m64-t2-p1-aesgc
 
 ## 7. Encrypted names (metadata)
 
-- **Wire alias** (stable, visible to servers):
+- **Opaque name alias** for names the application chooses to hide (currently
+  folder names; stable and visible to servers):
   `alias = "evb-" || lowercase-hex( HMAC-SHA256(nameKey, UTF-8(realName)) )`
   with `nameKey = SHA-256(privX25519 || seedMlkem)`. Deterministic by design:
   the same real name always maps to the same alias (versioning / convergence
   semantics).
-- **Encrypted real name** (stored next to the alias):
+- **Encrypted real name** (stored as client-side metadata):
   `blob = b64( nonce(12) || ct || tag(16) )` under the DEK (files) or the
   folder key (folders), AES-256-GCM, aad empty.
+- Drive also stores the real file name in `files.name` and its extension in
+  `ext_file` for display when the vault is locked. This is an explicit
+  metadata-privacy exception: encrypting `encryptedName` does not hide those
+  database columns.
 
-## 8. Cryptographic notes
+## 8. Opaque backup metadata
+
+These constructions are the canonical shared implementation for clients that
+need backup deduplication and local restore without disclosing paths or raw
+SHA-256 digests to the API. They use the account UMK only on the client.
+
+### 8.1 Key derivation
+
+For each purpose, derive an independent 32-byte key with HKDF-SHA256, empty
+salt, and:
+
+```
+IKM  = privateKeyX25519(32) || seedMlkem(64)
+info = UTF-8("evb-agent-metadata-v1:" || purpose)
+```
+
+Purpose labels are fixed: `manifest-path-index`, `content-equality`,
+`manifest-path-cipher`, and `manifest-content-hash-cipher`.
+
+### 8.2 Opaque indexes
+
+```
+pathAlias = "evb-" || lowercase-hex(HMAC-SHA256(pathKey, UTF-8(path)))
+hashToken = lowercase-hex(HMAC-SHA256(contentKey, UTF-8(lowercase(sha256Hex))))
+```
+
+Paths must be normalized relative paths using `/`, no more than 4096 UTF-8
+bytes and 512 components, with no empty, `.` or `..` components and no leading
+`/` or `\\`. A SHA-256 digest must be exactly 64 hexadecimal characters.
+Ancestor aliases are the path aliases for every prefix from the first
+component through the complete path, in order.
+
+### 8.3 Recoverable metadata
+
+Path and digest ciphertexts use separate derived keys and AAD values
+`evb-agent-manifest-path-v1` and
+`evb-agent-manifest-content-hash-v1` respectively. The encoding is
+`v1:base64(nonce12 || ciphertext || tag16)` using a fresh random nonce and
+AES-256-GCM. Decryption must authenticate, validate UTF-8, and revalidate the
+plaintext type (normalized path or SHA-256 hex) before returning it.
+
+Servers may compare the deterministic HMAC tokens and filter by ancestor
+aliases, but clients must encrypt the original path and digest and decrypt
+them locally before restore. This metadata protocol does not encrypt file
+names in `files.name` or `ext_file`; that storage policy is controlled by the
+application.
+
+## 9. Cryptographic notes
 
 - **DEK wrap v2 = HPKE RFC 9180 strict** (mode PSK carrying ML-KEM-768) —
   standard construction, see §3.1. The legacy v1 hybrid (single HKDF over the
@@ -255,7 +309,7 @@ plaintext = JSON { v: 3, scheme: "evb-e2ee-umk-password-argon2id-m64-t2-p1-aesgc
 - All b64 is standard alphabet with padding (`BASE64`, not url-safe).
 - Byte order: counters/AAD are **big-endian**.
 
-## 9. Known v1 quirks (do not "fix", preserve)
+## 10. Known v1 quirks (do not "fix", preserve)
 
 1. The header is exactly 16 bytes (`EVB1` + the 12-byte fileNonce). Of that
    nonce, only `fileNonce[0..4]` participates in the chunk-nonce derivation
@@ -268,7 +322,7 @@ plaintext = JSON { v: 3, scheme: "evb-e2ee-umk-password-argon2id-m64-t2-p1-aesgc
 4. Header-only payloads (0 blocks) are rejected by the SDK decryptor — the
    SDK is stricter than strictly required.
 
-## 10. Errors
+## 11. Errors
 
 | Condition | Error |
 |---|---|
@@ -282,7 +336,7 @@ Unknown **content** format versions: the EVB1 header has no version field
 beyond the magic; any future format change ships as a new magic/extension and
 must be explicit (no silent downgrade).
 
-## 11. Test vectors
+## 12. Test vectors
 
 - File: `vectors/evb-e2ee-v1.json` (frozen artifact, deterministic:
   regenerating yields an identical file). Generated once by the Rust core:

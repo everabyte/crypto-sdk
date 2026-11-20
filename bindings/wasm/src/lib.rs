@@ -23,11 +23,13 @@ fn err(e: core::E2eeError) -> JsError {
 }
 
 fn dek_of(dek: &[u8]) -> Result<[u8; 32], JsError> {
-    dek.try_into().map_err(|_| JsError::new("dek must be 32 bytes"))
+    dek.try_into()
+        .map_err(|_| JsError::new("dek must be 32 bytes"))
 }
 
 fn nonce_of(n: &[u8]) -> Result<[u8; NONCE_LEN], JsError> {
-    n.try_into().map_err(|_| JsError::new("nonce must be 12 bytes"))
+    n.try_into()
+        .map_err(|_| JsError::new("nonce must be 12 bytes"))
 }
 
 fn umk_of(sk: &[u8], seed: &[u8]) -> Result<UmkSecrets, JsError> {
@@ -73,7 +75,9 @@ pub fn evb1_open_all(dek: &[u8], payload: &[u8]) -> Result<Vec<u8>, JsError> {
 /// Generates a fresh UMK. Returns `sk(32) || seed(64)`.
 #[wasm_bindgen]
 pub fn generate_umk() -> Result<Vec<u8>, JsError> {
-    wrap::generate_umk().map(|umk| umk_to_bytes(&umk)).map_err(err)
+    wrap::generate_umk()
+        .map(|umk| umk_to_bytes(&umk))
+        .map_err(err)
 }
 
 /// Derives the public keys of a UMK as canonical JSON:
@@ -95,7 +99,11 @@ pub fn umk_public_keys(umk_sk: &[u8], umk_seed: &[u8]) -> Result<String, JsError
 /// Wraps the UMK under a fresh recovery mnemonic (PBKDF2-SHA512 100k, v2).
 /// Returns the blob as base64.
 #[wasm_bindgen]
-pub fn wrap_umk_with_mnemonic(umk_sk: &[u8], umk_seed: &[u8], mnemonic: &str) -> Result<String, JsError> {
+pub fn wrap_umk_with_mnemonic(
+    umk_sk: &[u8],
+    umk_seed: &[u8],
+    mnemonic: &str,
+) -> Result<String, JsError> {
     let umk = umk_of(umk_sk, umk_seed)?;
     let salt = core::keys::generate_salt16().map_err(err)?;
     let nonce = core::keys::generate_nonce().map_err(err)?;
@@ -113,7 +121,11 @@ pub fn unwrap_umk_with_mnemonic(blob_b64: &str, mnemonic: &str) -> Result<Vec<u8
 /// Wraps the UMK under a device secret (32 bytes held by the OS secure store).
 /// Returns the blob as base64.
 #[wasm_bindgen]
-pub fn wrap_umk_with_device_key(umk_sk: &[u8], umk_seed: &[u8], device_secret: &[u8]) -> Result<String, JsError> {
+pub fn wrap_umk_with_device_key(
+    umk_sk: &[u8],
+    umk_seed: &[u8],
+    device_secret: &[u8],
+) -> Result<String, JsError> {
     let umk = umk_of(umk_sk, umk_seed)?;
     let secret: [u8; 32] = device_secret
         .try_into()
@@ -124,7 +136,10 @@ pub fn wrap_umk_with_device_key(umk_sk: &[u8], umk_seed: &[u8], device_secret: &
 
 /// Unwraps the UMK with a device secret. Returns `sk(32) || seed(64)`.
 #[wasm_bindgen]
-pub fn unwrap_umk_with_device_key(blob_b64: &str, device_secret: &[u8]) -> Result<Vec<u8>, JsError> {
+pub fn unwrap_umk_with_device_key(
+    blob_b64: &str,
+    device_secret: &[u8],
+) -> Result<Vec<u8>, JsError> {
     let secret: [u8; 32] = device_secret
         .try_into()
         .map_err(|_| JsError::new("device secret must be 32 bytes"))?;
@@ -137,7 +152,11 @@ pub fn unwrap_umk_with_device_key(blob_b64: &str, device_secret: &[u8]) -> Resul
 /// scheme `evb-e2ee-umk-password-argon2id-m64-t2-p1-aesgcm`). Returns the
 /// blob as base64; the server stores it as an opaque blind-proxy blob.
 #[wasm_bindgen]
-pub fn wrap_umk_with_password(umk_sk: &[u8], umk_seed: &[u8], password: &str) -> Result<String, JsError> {
+pub fn wrap_umk_with_password(
+    umk_sk: &[u8],
+    umk_seed: &[u8],
+    password: &str,
+) -> Result<String, JsError> {
     let umk = umk_of(umk_sk, umk_seed)?;
     let salt = core::keys::generate_salt16().map_err(err)?;
     let nonce = core::keys::generate_nonce().map_err(err)?;
@@ -182,7 +201,9 @@ pub fn unwrap_dek_from_umk(
 ) -> Result<Vec<u8>, JsError> {
     let umk = umk_of(umk_sk, umk_seed)?;
     // Version dispatch inside: v: 2 = HPKE (RFC 9180), none = legacy v1.
-    Ok(wrap::unwrap_dek_from_umk_json(envelope_json, &umk).map_err(err)?.to_vec())
+    Ok(wrap::unwrap_dek_from_umk_json(envelope_json, &umk)
+        .map_err(err)?
+        .to_vec())
 }
 
 // ---------------------------------------------------------------------------
@@ -210,7 +231,9 @@ pub fn unwrap_dek_with_link_key(wrap_json: &str, link_key: &[u8]) -> Result<Vec<
     let key: [u8; 32] = link_key
         .try_into()
         .map_err(|_| JsError::new("link key must be 32 bytes"))?;
-    wrap::unwrap_dek_with_link_key(&w, &key).map(|d| d.to_vec()).map_err(err)
+    wrap::unwrap_dek_with_link_key(&w, &key)
+        .map(|d| d.to_vec())
+        .map_err(err)
 }
 
 /// Wraps a DEK under a 32-byte invite keyShare. Returns `{ wrappedDek, nonce }` JSON.
@@ -233,7 +256,9 @@ pub fn unwrap_dek_with_invite_key(wrap_json: &str, key_share: &[u8]) -> Result<V
     let key: [u8; 32] = key_share
         .try_into()
         .map_err(|_| JsError::new("invite keyShare must be 32 bytes"))?;
-    wrap::unwrap_dek_with_invite_key(&w, &key).map(|d| d.to_vec()).map_err(err)
+    wrap::unwrap_dek_with_invite_key(&w, &key)
+        .map(|d| d.to_vec())
+        .map_err(err)
 }
 
 // ---------------------------------------------------------------------------
@@ -242,7 +267,11 @@ pub fn unwrap_dek_with_invite_key(wrap_json: &str, key_share: &[u8]) -> Result<V
 
 /// Opaque wire alias: `evb-` + hex(HMAC-SHA256(nameKey, realName)).
 #[wasm_bindgen]
-pub fn derive_wire_alias(umk_sk: &[u8], umk_seed: &[u8], real_name: &str) -> Result<String, JsError> {
+pub fn derive_wire_alias(
+    umk_sk: &[u8],
+    umk_seed: &[u8],
+    real_name: &str,
+) -> Result<String, JsError> {
     let umk = umk_of(umk_sk, umk_seed)?;
     names::derive_opaque_wire_name(&umk, real_name).map_err(err)
 }
@@ -258,6 +287,81 @@ pub fn encrypt_file_name(dek: &[u8], real_name: &str, nonce: &[u8]) -> Result<St
 #[wasm_bindgen]
 pub fn decrypt_file_name(dek: &[u8], blob_b64: &str) -> Result<String, JsError> {
     names::decrypt_file_name(&dek_of(dek)?, blob_b64).map_err(err)
+}
+
+// ---------------------------------------------------------------------------
+// Opaque backup metadata (shared with the desktop agent)
+// ---------------------------------------------------------------------------
+
+/// Stable HMAC alias for a normalized relative backup path.
+#[wasm_bindgen]
+pub fn derive_opaque_manifest_path(
+    umk_sk: &[u8],
+    umk_seed: &[u8],
+    path: &str,
+) -> Result<String, JsError> {
+    core::metadata::derive_opaque_manifest_path(&umk_of(umk_sk, umk_seed)?, path).map_err(err)
+}
+
+/// Returns root-to-leaf path-prefix aliases as a JSON array of strings.
+#[wasm_bindgen]
+pub fn derive_opaque_path_ancestors(
+    umk_sk: &[u8],
+    umk_seed: &[u8],
+    path: &str,
+) -> Result<String, JsError> {
+    let aliases = core::metadata::derive_opaque_path_ancestors(&umk_of(umk_sk, umk_seed)?, path)
+        .map_err(err)?;
+    serde_json::to_string(&aliases).map_err(|e| JsError::new(&format!("metadata json: {e}")))
+}
+
+/// Deterministic HMAC token for a lowercase or uppercase 64-character SHA-256 hex digest.
+#[wasm_bindgen]
+pub fn derive_opaque_content_hash(
+    umk_sk: &[u8],
+    umk_seed: &[u8],
+    sha256_hex: &str,
+) -> Result<String, JsError> {
+    core::metadata::derive_opaque_content_hash(&umk_of(umk_sk, umk_seed)?, sha256_hex).map_err(err)
+}
+
+/// Encrypts a normalized relative path with a fresh nonce; returns the versioned `v1:` blob.
+#[wasm_bindgen]
+pub fn encrypt_manifest_path(
+    umk_sk: &[u8],
+    umk_seed: &[u8],
+    path: &str,
+) -> Result<String, JsError> {
+    core::metadata::encrypt_manifest_path(&umk_of(umk_sk, umk_seed)?, path).map_err(err)
+}
+
+#[wasm_bindgen]
+pub fn decrypt_manifest_path(
+    umk_sk: &[u8],
+    umk_seed: &[u8],
+    blob: &str,
+) -> Result<String, JsError> {
+    core::metadata::decrypt_manifest_path(&umk_of(umk_sk, umk_seed)?, blob).map_err(err)
+}
+
+/// Encrypts a 64-character SHA-256 hex digest with a fresh nonce.
+#[wasm_bindgen]
+pub fn encrypt_manifest_content_hash(
+    umk_sk: &[u8],
+    umk_seed: &[u8],
+    sha256_hex: &str,
+) -> Result<String, JsError> {
+    core::metadata::encrypt_manifest_content_hash(&umk_of(umk_sk, umk_seed)?, sha256_hex)
+        .map_err(err)
+}
+
+#[wasm_bindgen]
+pub fn decrypt_manifest_content_hash(
+    umk_sk: &[u8],
+    umk_seed: &[u8],
+    blob: &str,
+) -> Result<String, JsError> {
+    core::metadata::decrypt_manifest_content_hash(&umk_of(umk_sk, umk_seed)?, blob).map_err(err)
 }
 
 // ---------------------------------------------------------------------------

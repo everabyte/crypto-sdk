@@ -202,7 +202,7 @@ pub extern "C" fn evb_unwrap_dek_from_umk(
         set_err("null argument");
         return ERR_ARG;
     }
-    // Version dispatch happens inside: v: 2 = HPKE (RFC 9180), none = legacy v1. 
+    // Version dispatch happens inside: v: 2 = HPKE (RFC 9180), none = legacy v1.
     let umk = UmkSecrets {
         private_key_x25519: unsafe { slice(umk_sk, 32) }.try_into().unwrap(),
         seed_mlkem: unsafe { slice(umk_seed, 64) }.try_into().unwrap(),
@@ -360,6 +360,155 @@ pub extern "C" fn evb_derive_wire_alias(
     }
 }
 
+fn metadata_string(
+    umk_sk: *const u8,
+    umk_seed: *const u8,
+    input: *const c_char,
+    out: *mut c_char,
+    out_cap: u64,
+    op: fn(&UmkSecrets, &str) -> core::Result<String>,
+) -> i32 {
+    if umk_sk.is_null() || umk_seed.is_null() || input.is_null() || out.is_null() {
+        set_err("null argument");
+        return ERR_ARG;
+    }
+    let value = match read_str(input) {
+        Ok(s) => s,
+        Err(code) => return code,
+    };
+    let umk = UmkSecrets {
+        private_key_x25519: unsafe { slice(umk_sk, 32) }.try_into().unwrap(),
+        seed_mlkem: unsafe { slice(umk_seed, 64) }.try_into().unwrap(),
+    };
+    match op(&umk, &value) {
+        Ok(result) => unsafe { write_nul_str(out, out_cap, &result) },
+        Err(error) => err_of(&error),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn evb_derive_opaque_manifest_path(
+    umk_sk: *const u8,
+    umk_seed: *const u8,
+    path: *const c_char,
+    out: *mut c_char,
+    out_cap: u64,
+) -> i32 {
+    metadata_string(
+        umk_sk,
+        umk_seed,
+        path,
+        out,
+        out_cap,
+        core::metadata::derive_opaque_manifest_path,
+    )
+}
+
+#[no_mangle]
+pub extern "C" fn evb_derive_opaque_path_ancestors(
+    umk_sk: *const u8,
+    umk_seed: *const u8,
+    path: *const c_char,
+    out: *mut c_char,
+    out_cap: u64,
+) -> i32 {
+    metadata_string(umk_sk, umk_seed, path, out, out_cap, |umk, path| {
+        let aliases = core::metadata::derive_opaque_path_ancestors(umk, path)?;
+        serde_json::to_string(&aliases)
+            .map_err(|_| core::E2eeError::InvalidPayload("metadata json"))
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn evb_derive_opaque_content_hash(
+    umk_sk: *const u8,
+    umk_seed: *const u8,
+    hash: *const c_char,
+    out: *mut c_char,
+    out_cap: u64,
+) -> i32 {
+    metadata_string(
+        umk_sk,
+        umk_seed,
+        hash,
+        out,
+        out_cap,
+        core::metadata::derive_opaque_content_hash,
+    )
+}
+
+#[no_mangle]
+pub extern "C" fn evb_encrypt_manifest_path(
+    umk_sk: *const u8,
+    umk_seed: *const u8,
+    path: *const c_char,
+    out: *mut c_char,
+    out_cap: u64,
+) -> i32 {
+    metadata_string(
+        umk_sk,
+        umk_seed,
+        path,
+        out,
+        out_cap,
+        core::metadata::encrypt_manifest_path,
+    )
+}
+
+#[no_mangle]
+pub extern "C" fn evb_decrypt_manifest_path(
+    umk_sk: *const u8,
+    umk_seed: *const u8,
+    blob: *const c_char,
+    out: *mut c_char,
+    out_cap: u64,
+) -> i32 {
+    metadata_string(
+        umk_sk,
+        umk_seed,
+        blob,
+        out,
+        out_cap,
+        core::metadata::decrypt_manifest_path,
+    )
+}
+
+#[no_mangle]
+pub extern "C" fn evb_encrypt_manifest_content_hash(
+    umk_sk: *const u8,
+    umk_seed: *const u8,
+    hash: *const c_char,
+    out: *mut c_char,
+    out_cap: u64,
+) -> i32 {
+    metadata_string(
+        umk_sk,
+        umk_seed,
+        hash,
+        out,
+        out_cap,
+        core::metadata::encrypt_manifest_content_hash,
+    )
+}
+
+#[no_mangle]
+pub extern "C" fn evb_decrypt_manifest_content_hash(
+    umk_sk: *const u8,
+    umk_seed: *const u8,
+    blob: *const c_char,
+    out: *mut c_char,
+    out_cap: u64,
+) -> i32 {
+    metadata_string(
+        umk_sk,
+        umk_seed,
+        blob,
+        out,
+        out_cap,
+        core::metadata::decrypt_manifest_content_hash,
+    )
+}
+
 // ---------------------------------------------------------------------------
 // Primitives
 // ---------------------------------------------------------------------------
@@ -507,7 +656,12 @@ pub extern "C" fn evb_wrap_umk_with_device_key(
     out_blob: *mut c_char,
     out_cap: u64,
 ) -> i32 {
-    if umk_sk.is_null() || umk_seed.is_null() || device_secret.is_null() || nonce.is_null() || out_blob.is_null() {
+    if umk_sk.is_null()
+        || umk_seed.is_null()
+        || device_secret.is_null()
+        || nonce.is_null()
+        || out_blob.is_null()
+    {
         set_err("null argument");
         return ERR_ARG;
     }
@@ -537,7 +691,12 @@ pub extern "C" fn evb_wrap_umk_with_password(
     out_blob: *mut c_char,
     out_cap: u64,
 ) -> i32 {
-    if umk_sk.is_null() || umk_seed.is_null() || salt.is_null() || nonce.is_null() || out_blob.is_null() {
+    if umk_sk.is_null()
+        || umk_seed.is_null()
+        || salt.is_null()
+        || nonce.is_null()
+        || out_blob.is_null()
+    {
         set_err("null argument");
         return ERR_ARG;
     }
@@ -898,4 +1057,3 @@ mod c_abi_tests {
         out
     }
 }
-

@@ -136,6 +136,44 @@ int32_t evb_decrypt_file_name(const uint8_t *dek, const char *blob_b64,
                               uint8_t *out, uint64_t out_cap,
                               uint64_t *out_len);
 
+/* ── Opaque backup metadata ──────────────────────────────────────────── */
+
+/* Alias for a normalized relative path: "evb-" + HMAC-SHA256 hex. */
+int32_t evb_derive_opaque_manifest_path(const uint8_t *umk_sk,
+                                        const uint8_t *umk_seed,
+                                        const char *path,
+                                        char *out, uint64_t out_cap);
+
+/* JSON array of path-prefix aliases, root to leaf. */
+int32_t evb_derive_opaque_path_ancestors(const uint8_t *umk_sk,
+                                         const uint8_t *umk_seed,
+                                         const char *path,
+                                         char *out, uint64_t out_cap);
+
+/* HMAC token of a 64-character SHA-256 hex digest. */
+int32_t evb_derive_opaque_content_hash(const uint8_t *umk_sk,
+                                      const uint8_t *umk_seed,
+                                      const char *sha256_hex,
+                                      char *out, uint64_t out_cap);
+
+/* Versioned v1:base64(nonce12 || ciphertext || tag16) metadata blobs. */
+int32_t evb_encrypt_manifest_path(const uint8_t *umk_sk,
+                                  const uint8_t *umk_seed,
+                                  const char *path,
+                                  char *out, uint64_t out_cap);
+int32_t evb_decrypt_manifest_path(const uint8_t *umk_sk,
+                                  const uint8_t *umk_seed,
+                                  const char *blob,
+                                  char *out, uint64_t out_cap);
+int32_t evb_encrypt_manifest_content_hash(const uint8_t *umk_sk,
+                                          const uint8_t *umk_seed,
+                                          const char *sha256_hex,
+                                          char *out, uint64_t out_cap);
+int32_t evb_decrypt_manifest_content_hash(const uint8_t *umk_sk,
+                                          const uint8_t *umk_seed,
+                                          const char *blob,
+                                          char *out, uint64_t out_cap);
+
 /* ── Primitives & diagnostics ────────────────────────────────────────── */
 
 int32_t evb_hkdf_sha256(const uint8_t *ikm, uint64_t ikm_len,

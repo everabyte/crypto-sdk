@@ -2,6 +2,7 @@ pub mod content;
 pub mod error;
 pub mod hpke;
 pub mod keys;
+pub mod metadata;
 pub mod mnemonic;
 pub mod names;
 pub mod wrap;
