@@ -349,3 +349,10 @@ must be explicit (no silent downgrade).
   `abandon … about` (12 words).
 - Consumers: the Rust core and the WASM and Dart bindings — all must pass
   against the same frozen file before any release.
+- Consumers: the Rust core and the WASM and Dart bindings — all must pass
+  against the same frozen file before any release.
+- Metadata kinds (0.4.0, contract v2.2 opaque backup metadata §8): the grid
+  also freezes `metadata-path-alias`, `metadata-path-ancestors`,
+  `metadata-content-token`, `metadata-encrypted-path` and
+  `metadata-encrypted-hash` — the deterministic kinds need no nonce
+  injection, the sealed blobs use the feature-gated `*_with_nonce` variants.

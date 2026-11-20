@@ -146,6 +146,36 @@ test('wire alias', () => {
   assert.ok(alias.startsWith('evb-'));
 });
 
+test('opaque backup metadata (contract v2.2 — aliases, ancestors, tokens, sealed blobs)', () => {
+  const va = find('metadata-path-alias', 'metadata-path-alias');
+  const sk = hx(va.privateKeyX25519);
+  const seed = hx(va.seedMlkem);
+  assert.equal(wasm.derive_opaque_manifest_path(sk, seed, va.path), va.alias);
+
+  const vh = find('metadata-path-ancestors', 'metadata-path-ancestors');
+  assert.deepEqual(
+    JSON.parse(wasm.derive_opaque_path_ancestors(sk, seed, vh.path)),
+    vh.ancestors,
+  );
+
+  const vt = find('metadata-content-token', 'metadata-content-token');
+  assert.equal(wasm.derive_opaque_content_hash(sk, seed, vt.sha256), vt.token);
+
+  const vp = find('metadata-encrypted-path', 'metadata-encrypted-path');
+  assert.equal(
+    wasm.decrypt_manifest_path(
+      hx(vp.privateKeyX25519), hx(vp.seedMlkem), vp.blob),
+    vp.path,
+  );
+
+  const vd = find('metadata-encrypted-hash', 'metadata-encrypted-hash');
+  assert.equal(
+    wasm.decrypt_manifest_content_hash(
+      hx(vd.privateKeyX25519), hx(vd.seedMlkem), vd.blob),
+    vd.sha256,
+  );
+});
+
 test('encrypted name decrypt + roundtrip', () => {
   const v = find('name-encrypted', 'name-encrypted');
   assert.equal(wasm.decrypt_file_name(hx(v.dek), v.blob), v.realName);

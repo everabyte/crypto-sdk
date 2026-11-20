@@ -6,6 +6,7 @@ use serde_json::Value;
 
 use evb_e2ee_core::content::Evb1Decryptor;
 use evb_e2ee_core::keys::{UmkPublic, UmkSecrets, DEK_LEN, NONCE_LEN};
+use evb_e2ee_core::metadata;
 use evb_e2ee_core::names;
 use evb_e2ee_core::wrap;
 
@@ -142,6 +143,57 @@ fn frozen_name_vectors() {
     let dek = hx(v, "dek");
     let name = names::decrypt_file_name(&dek.try_into().unwrap(), v["blob"].as_str().unwrap()).unwrap();
     assert_eq!(name, v["realName"]);
+}
+
+/// Opaque backup metadata (contract v2.2): the same frozen grid is consumed
+/// byte-exact by the Dart and WASM bindings — aliases, ancestor chains,
+/// content tokens and the sealed path/hash blobs.
+#[test]
+fn frozen_metadata_vectors() {
+    let vectors = vectors();
+
+    let umk_of = |v: &Value| -> UmkSecrets {
+        UmkSecrets {
+            private_key_x25519: hx(v, "privateKeyX25519").try_into().unwrap(),
+            seed_mlkem: hx(v, "seedMlkem").try_into().unwrap(),
+        }
+    };
+
+    let v = find(&vectors, "metadata-path-alias", "metadata-path-alias");
+    let umk = umk_of(v);
+    let alias = metadata::derive_opaque_manifest_path(&umk, v["path"].as_str().unwrap()).unwrap();
+    assert_eq!(alias, v["alias"]);
+    // Cross-vector consistency: the leaf ancestor IS the full-path alias.
+    let va = find(&vectors, "metadata-path-ancestors", "metadata-path-ancestors");
+    assert_eq!(
+        alias,
+        va["ancestors"].as_array().unwrap().last().unwrap().as_str().unwrap()
+    );
+
+    let v = find(&vectors, "metadata-path-ancestors", "metadata-path-ancestors");
+    let ancestors =
+        metadata::derive_opaque_path_ancestors(&umk_of(v), v["path"].as_str().unwrap()).unwrap();
+    let frozen: Vec<String> = v["ancestors"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|x| x.as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(ancestors, frozen);
+
+    let v = find(&vectors, "metadata-content-token", "metadata-content-token");
+    let token =
+        metadata::derive_opaque_content_hash(&umk_of(v), v["sha256"].as_str().unwrap()).unwrap();
+    assert_eq!(token, v["token"]);
+
+    let v = find(&vectors, "metadata-encrypted-path", "metadata-encrypted-path");
+    let opened = metadata::decrypt_manifest_path(&umk_of(v), v["blob"].as_str().unwrap()).unwrap();
+    assert_eq!(opened, v["path"]);
+
+    let v = find(&vectors, "metadata-encrypted-hash", "metadata-encrypted-hash");
+    let opened =
+        metadata::decrypt_manifest_content_hash(&umk_of(v), v["blob"].as_str().unwrap()).unwrap();
+    assert_eq!(opened, v["sha256"]);
 }
 
 #[test]

@@ -141,3 +141,39 @@ pub fn decrypt_manifest_content_hash(umk: &UmkSecrets, blob: &str) -> Result<Str
     validate_sha256_hex(&hash)?;
     Ok(hash)
 }
+
+// ---------------------------------------------------------------------------
+// Test-only deterministic variants (feature `deterministic-vectors`): same
+// wire encoding as the production fns with the nonce supplied by the vector
+// generator, so the frozen grid covers the `v1:` metadata blobs too.
+// ---------------------------------------------------------------------------
+#[cfg(feature = "deterministic-vectors")]
+pub fn encrypt_manifest_path_with_nonce(
+    umk: &UmkSecrets,
+    path: &str,
+    nonce: &[u8; crate::keys::NONCE_LEN],
+) -> Result<String> {
+    validate_relative_path(path)?;
+    let key = derive_key(umk, PATH_CIPHER)?;
+    let ciphertext_and_tag = GcmBox::seal(&key[..], nonce, path.as_bytes(), PATH_AAD)?;
+    let mut blob = Vec::with_capacity(crate::keys::NONCE_LEN + ciphertext_and_tag.len());
+    blob.extend_from_slice(nonce);
+    blob.extend_from_slice(&ciphertext_and_tag);
+    Ok(format!("v1:{}", b64_encode(&blob)))
+}
+
+#[cfg(feature = "deterministic-vectors")]
+pub fn encrypt_manifest_content_hash_with_nonce(
+    umk: &UmkSecrets,
+    sha256_hex: &str,
+    nonce: &[u8; crate::keys::NONCE_LEN],
+) -> Result<String> {
+    validate_sha256_hex(sha256_hex)?;
+    let key = derive_key(umk, CONTENT_HASH_CIPHER)?;
+    let plaintext = sha256_hex.to_ascii_lowercase();
+    let ciphertext_and_tag = GcmBox::seal(&key[..], nonce, plaintext.as_bytes(), CONTENT_HASH_AAD)?;
+    let mut blob = Vec::with_capacity(crate::keys::NONCE_LEN + ciphertext_and_tag.len());
+    blob.extend_from_slice(nonce);
+    blob.extend_from_slice(&ciphertext_and_tag);
+    Ok(format!("v1:{}", b64_encode(&blob)))
+}

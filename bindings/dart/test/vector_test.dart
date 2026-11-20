@@ -140,6 +140,46 @@ void main() {
       expect(alias.startsWith('evb-'), isTrue);
     });
 
+    test('opaque backup metadata (contract v2.2 — aliases, ancestors, '
+        'tokens, sealed blobs)', () {
+      final va = find(vectors, 'metadata-path-alias', 'metadata-path-alias');
+      final sk = hx(va['privateKeyX25519']);
+      final seed = hx(va['seedMlkem']);
+      expect(sdk.deriveOpaqueManifestPath(sk, seed, va['path']), va['alias']);
+
+      final vh =
+          find(vectors, 'metadata-path-ancestors', 'metadata-path-ancestors');
+      final ancestors =
+          sdk.deriveOpaquePathAncestors(sk, seed, vh['path']);
+      expect(
+        ancestors,
+        (vh['ancestors'] as List).map((e) => e as String).toList(),
+      );
+
+      final vt =
+          find(vectors, 'metadata-content-token', 'metadata-content-token');
+      expect(
+        sdk.deriveOpaqueContentHash(sk, seed, vt['sha256']),
+        vt['token'],
+      );
+
+      final vp =
+          find(vectors, 'metadata-encrypted-path', 'metadata-encrypted-path');
+      expect(
+        sdk.decryptManifestPath(
+            hx(vp['privateKeyX25519']), hx(vp['seedMlkem']), vp['blob']),
+        vp['path'],
+      );
+
+      final vd =
+          find(vectors, 'metadata-encrypted-hash', 'metadata-encrypted-hash');
+      expect(
+        sdk.decryptManifestContentHash(
+            hx(vd['privateKeyX25519']), hx(vd['seedMlkem']), vd['blob']),
+        vd['sha256'],
+      );
+    });
+
     test('HKDF primitive', () {
       final v = find(vectors, 'primitive', 'hkdf-file-wrap');
       final okm = sdk.hkdfSha256(hx(v['ikm']), utf8.encode(v['info']));

@@ -274,6 +274,54 @@ fn main() {
         "blob": name_blob,
     }));
 
+    // ---- opaque backup metadata (contract v2.2, 2026-11-20) -----------------
+    // Deterministic alias/token kinds need no nonce injection; the sealed
+    // blobs use the nonce-picked variants (feature deterministic-vectors).
+    let manifest_path = "jobs/docs/quarterly-report.pdf";
+    let manifest_hash = "3f79bb7b435b05321651daefd374cdc681dc06faa65e374e38337b88ca7c2de8";
+    vectors.push(json!({
+        "kind": "metadata-path-alias",
+        "id": "metadata-path-alias",
+        "privateKeyX25519": hx(&umk_sk),
+        "seedMlkem": hx(&umk_seed),
+        "path": manifest_path,
+        "alias": evb_e2ee_core::metadata::derive_opaque_manifest_path(&umk, manifest_path).unwrap(),
+    }));
+    vectors.push(json!({
+        "kind": "metadata-path-ancestors",
+        "id": "metadata-path-ancestors",
+        "privateKeyX25519": hx(&umk_sk),
+        "seedMlkem": hx(&umk_seed),
+        "path": manifest_path,
+        "ancestors": evb_e2ee_core::metadata::derive_opaque_path_ancestors(&umk, manifest_path).unwrap(),
+    }));
+    vectors.push(json!({
+        "kind": "metadata-content-token",
+        "id": "metadata-content-token",
+        "privateKeyX25519": hx(&umk_sk),
+        "seedMlkem": hx(&umk_seed),
+        "sha256": manifest_hash,
+        "token": evb_e2ee_core::metadata::derive_opaque_content_hash(&umk, manifest_hash).unwrap(),
+    }));
+    vectors.push(json!({
+        "kind": "metadata-encrypted-path",
+        "id": "metadata-encrypted-path",
+        "privateKeyX25519": hx(&umk_sk),
+        "seedMlkem": hx(&umk_seed),
+        "path": manifest_path,
+        "nonce": hx(&file_nonce),
+        "blob": evb_e2ee_core::metadata::encrypt_manifest_path_with_nonce(&umk, manifest_path, &file_nonce).unwrap(),
+    }));
+    vectors.push(json!({
+        "kind": "metadata-encrypted-hash",
+        "id": "metadata-encrypted-hash",
+        "privateKeyX25519": hx(&umk_sk),
+        "seedMlkem": hx(&umk_seed),
+        "sha256": manifest_hash,
+        "nonce": hx(&file_nonce),
+        "blob": evb_e2ee_core::metadata::encrypt_manifest_content_hash_with_nonce(&umk, manifest_hash, &file_nonce).unwrap(),
+    }));
+
     // ---- link + invite wraps -------------------------------------------------
     let link_key: [u8; 32] = {
         let mut d = [0u8; 32];
@@ -334,7 +382,7 @@ fn main() {
     let doc = json!({
         "protocol": "evb-e2ee-v1",
         "canonical": "Everabyte zero-knowledge wire format evb-e2ee-v1",
-        "generatedBy": "evb-e2ee-core 0.2.0 (example gen_vectors)",
+        "generatedBy": "evb-e2ee-core 0.4.0 (example gen_vectors)",
         "note": "plaintextPattern for content vectors: pattern(i) = SHA-256(\"EVB-VECTOR\" || BE u64 i); concatenation of 32-byte blocks truncated to len",
         "vectors": vectors,
     });

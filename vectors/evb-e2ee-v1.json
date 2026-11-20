@@ -1,6 +1,6 @@
 {
   "canonical": "Everabyte zero-knowledge wire format evb-e2ee-v1",
-  "generatedBy": "evb-e2ee-core 0.2.0 (example gen_vectors)",
+  "generatedBy": "evb-e2ee-core 0.4.0 (example gen_vectors)",
   "note": "plaintextPattern for content vectors: pattern(i) = SHA-256(\"EVB-VECTOR\" || BE u64 i); concatenation of 32-byte blocks truncated to len",
   "protocol": "evb-e2ee-v1",
   "vectors": [
@@ -180,6 +180,52 @@
       "kind": "name-encrypted",
       "nonce": "001f3e5d7c9bbad9f8173655",
       "realName": "budget 2026 (final).xlsx"
+    },
+    {
+      "alias": "evb-7d78e0234b51562714f152f65451cec2158e1cc8aef0ea27c5f25efd44e005c3",
+      "id": "metadata-path-alias",
+      "kind": "metadata-path-alias",
+      "path": "jobs/docs/quarterly-report.pdf",
+      "privateKeyX25519": "020d18232e39444f5a65707b86919ca7b2bdc8d3dee9f4ff0a15202b36414c57",
+      "seedMlkem": "03101d2a3744515e6b7885929facb9c6d3e0edfa0714212e3b4855626f7c8996a3b0bdcad7e4f1fe0b1825323f4c596673808d9aa7b4c1cedbe8f5020f1c2936"
+    },
+    {
+      "ancestors": [
+        "evb-3456d67446a5b976869170c6fba096400af4faae29a190555c62dd4cbf221ac4",
+        "evb-74cd65a922ef6bc85fca584db8b2016c6caa6d40f7a3955b6e7878a31cb0528e",
+        "evb-7d78e0234b51562714f152f65451cec2158e1cc8aef0ea27c5f25efd44e005c3"
+      ],
+      "id": "metadata-path-ancestors",
+      "kind": "metadata-path-ancestors",
+      "path": "jobs/docs/quarterly-report.pdf",
+      "privateKeyX25519": "020d18232e39444f5a65707b86919ca7b2bdc8d3dee9f4ff0a15202b36414c57",
+      "seedMlkem": "03101d2a3744515e6b7885929facb9c6d3e0edfa0714212e3b4855626f7c8996a3b0bdcad7e4f1fe0b1825323f4c596673808d9aa7b4c1cedbe8f5020f1c2936"
+    },
+    {
+      "id": "metadata-content-token",
+      "kind": "metadata-content-token",
+      "privateKeyX25519": "020d18232e39444f5a65707b86919ca7b2bdc8d3dee9f4ff0a15202b36414c57",
+      "seedMlkem": "03101d2a3744515e6b7885929facb9c6d3e0edfa0714212e3b4855626f7c8996a3b0bdcad7e4f1fe0b1825323f4c596673808d9aa7b4c1cedbe8f5020f1c2936",
+      "sha256": "3f79bb7b435b05321651daefd374cdc681dc06faa65e374e38337b88ca7c2de8",
+      "token": "9f247e7ccc51d62c1538e9519b257190a291f1a74ec06162fbef7627d71372c1"
+    },
+    {
+      "blob": "v1:AB8+XXybutn4FzZV8xpOw9iuA+SmiKVdTwsEXpdAfVWKw9QQwbLhZS2FU+bhCNo/RcDs4iMU4UkVMA==",
+      "id": "metadata-encrypted-path",
+      "kind": "metadata-encrypted-path",
+      "nonce": "001f3e5d7c9bbad9f8173655",
+      "path": "jobs/docs/quarterly-report.pdf",
+      "privateKeyX25519": "020d18232e39444f5a65707b86919ca7b2bdc8d3dee9f4ff0a15202b36414c57",
+      "seedMlkem": "03101d2a3744515e6b7885929facb9c6d3e0edfa0714212e3b4855626f7c8996a3b0bdcad7e4f1fe0b1825323f4c596673808d9aa7b4c1cedbe8f5020f1c2936"
+    },
+    {
+      "blob": "v1:AB8+XXybutn4FzZVh7u7OXzhLEccatX5LhR4b8JVXJQUp4NSpj6wkIbITKsW6zoMyH4lshCDufBOZIl5zJ6lvtmsooeE/KKZO/e/9pe3LYrV/UZXF3OghdLNu+I=",
+      "id": "metadata-encrypted-hash",
+      "kind": "metadata-encrypted-hash",
+      "nonce": "001f3e5d7c9bbad9f8173655",
+      "privateKeyX25519": "020d18232e39444f5a65707b86919ca7b2bdc8d3dee9f4ff0a15202b36414c57",
+      "seedMlkem": "03101d2a3744515e6b7885929facb9c6d3e0edfa0714212e3b4855626f7c8996a3b0bdcad7e4f1fe0b1825323f4c596673808d9aa7b4c1cedbe8f5020f1c2936",
+      "sha256": "3f79bb7b435b05321651daefd374cdc681dc06faa65e374e38337b88ca7c2de8"
     },
     {
       "dek": "01080f161d242b323940474e555c636a71787f868d949ba2a9b0b7bec5ccd3da",

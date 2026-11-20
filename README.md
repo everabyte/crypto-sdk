@@ -16,7 +16,7 @@ Full guides and API walkthroughs: **https://docs.everabyte.com** (Zero-Knowledge
 
 ## Version
 
-Working SDK version: **0.3.0** (see the `VERSION` file; release tag is created only after its verification gates pass).
+Working SDK version: **0.4.0** (see the `VERSION` file; release tag is created only after its verification gates pass).
 
 Versioning rule (strict):
 
